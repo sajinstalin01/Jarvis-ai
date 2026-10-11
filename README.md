@@ -7,9 +7,9 @@
 - Sound toggle and optional spoken responses.
 - Groq AI with Gemini fallback using keys from local `.env`.
 - Local commands: time/date/system info, safe arithmetic calculator, browser search and website shortcuts.
-- **Windows app shortcuts:** Notepad, Calculator, Paint, File Explorer, Task Manager, Settings, Snipping Tool, PowerShell, Terminal, Command Prompt, Control Panel, Device Manager, Disk Management, Services, Event Viewer, Task Scheduler, System Information, Resource Monitor, Registry Editor, Windows Security, Magnifier, On-Screen Keyboard and Remote Desktop.
-- **Third-party shortcuts:** Chrome, Edge, Firefox, Brave, Opera, Vivaldi, VS Code, Visual Studio, Android Studio, PyCharm, IntelliJ IDEA, Git Bash, GitHub Desktop, VLC, OBS Studio, Discord, Telegram, WhatsApp Web, Spotify, Steam, Epic Games Launcher, 7-Zip, WinRAR, Notepad++, Photoshop, Premiere Pro and After Effects.
-- GUI app shortcut panel plus commands like `launch android studio`, `launch photoshop` or `launch snipping tool`. Apps must be installed and registered/on PATH or in a standard location for Windows to find them.
+- **Expanded Windows shortcuts:** Notepad, Calculator, Paint, File Explorer, Task Manager, Settings, Snipping Tool, PowerShell, Terminal, Command Prompt, Control Panel, Device Manager, Disk Management, Services, Event Viewer, Task Scheduler, System Information, Resource Monitor, Registry Editor, Windows Security, Magnifier, On-Screen Keyboard, Remote Desktop, Character Map, System Configuration, Computer Management, Performance Monitor, Disk Cleanup, DirectX Diagnostic, Windows Memory Diagnostic, Programs and Features, Network Connections, Windows Firewall, Sound Settings, Mouse Settings, Internet Properties, System Properties, Power Options, Local Users and Groups, Group Policy Editor, Certificate Manager and Steps Recorder.
+- **Expanded third-party shortcuts:** Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, VS Code, Visual Studio, Android Studio, PyCharm, IntelliJ IDEA, Git Bash, GitHub Desktop, Cursor, Windsurf, Sublime Text, Postman, Docker Desktop, Jupyter Notebook, Anaconda Navigator, MySQL Workbench, DBeaver, FileZilla, VLC, OBS Studio, Discord, Telegram, WhatsApp Desktop/Web, Spotify, Zoom, Microsoft Teams, Slack, Notion, Obsidian, Dropbox, OneDrive, Google Drive, Steam, Epic Games Launcher, 7-Zip, WinRAR, Notepad++, Photoshop, Premiere Pro, After Effects, GIMP, Blender, Audacity, HandBrake, DaVinci Resolve and Figma.
+- GUI app shortcut panel now includes Windows Security, Settings, Zoom and Notion in addition to the existing quick-launch buttons. Use commands like `launch computer management`, `launch network connections`, `launch zoom`, `launch teams`, `launch notion`, `launch cursor`, `launch docker desktop`, `launch blender`, `launch gimp`, `launch figma`, `launch postman` or `launch filezilla`. Apps must be installed and discoverable by Windows, or their executable paths must be added to `APP_ALIASES`.
 - Optional microphone input with SpeechRecognition and PyAudio; optional spoken responses with pyttsx3.
 - WhatsApp Web helper for contact-search guidance and message drafts. It never scrapes private contacts or auto-sends messages.
 - Safe GitHub fast-forward updater and GitHub Actions syntax checks.
@@ -40,7 +40,7 @@ Linux/macOS: `bash run_linux_mac.sh`.
 - `search Python speech recognition`
 - `open YouTube`, `open Google`, `open GitHub`, `open Gmail`, `open Wikipedia`
 - `launch notepad`, `launch calculator`, `launch snipping tool`, `launch powershell`, `launch device manager`
-- `launch chrome`, `launch brave`, `launch vscode`, `launch android studio`, `launch photoshop`, `launch vlc`, `launch discord`, `launch telegram`
+- `launch chrome`, `launch brave`, `launch vscode`, `launch android studio`, `launch photoshop`, `launch vlc`, `launch discord`, `launch telegram`\n- `launch disk cleanup`, `launch computer management`, `launch network connections`, `launch system properties`\n- `launch zoom`, `launch teams`, `launch slack`, `launch notion`, `launch obsidian`, `launch cursor`, `launch docker desktop`, `launch blender`, `launch gimp`, `launch figma`, `launch postman`, `launch filezilla`
 - `open whatsapp`, `whatsapp search Sajin`
 - `whatsapp message Sajin | Hello, how are you?` (draft only)
 
