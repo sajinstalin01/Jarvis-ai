@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "repository": "sajinstalin01/Jarvis-ai",
+  "branch": "main",
+  "git_executable": "",
+  "watch_interval_seconds": 300
+}
