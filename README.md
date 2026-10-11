@@ -1,64 +1,52 @@
-# J.A.R.V.I.S. — Iron Man-inspired AI Desktop GUI
+# J.A.R.V.I.S. V2 — Iron Man-inspired desktop assistant
 
-A Python desktop assistant with a futuristic cyan-on-dark dashboard, reactor graphic, live clock, system telemetry, chat console, browser shortcuts, local commands, and optional Groq/Gemini AI chat.
+Python desktop assistant with an animated sci-fi GUI, loading screen, sound toggle, optional microphone voice input, optional spoken responses, Groq/Gemini AI chat, allow-listed app launching, web search, and WhatsApp Web helper commands.
 
-## Features
-- Sci-fi HUD-style desktop GUI built with CustomTkinter
-- Responsive chat interface; AI requests run in a background thread
-- Optional Groq AI with Gemini fallback
-- Local commands: `help`, `time`, `date`, `system info`, `open YouTube`, `open GitHub`, `search <query>`, `calculate <expression>`
-- Live clock, OS/Python/host information, browser quick actions
-- API keys stored in a local `.env` file and excluded from Git
-- Does not silently execute arbitrary shell commands or destructive system actions
-
-## Quick start on Windows
+## Quick start (Windows 10/11)
 1. Install Python 3.10+ and enable **Add Python to PATH**.
-2. Download or clone this repository.
-3. Double-click `run_windows.bat`.
-4. The first launch installs dependencies and creates `.env` from `.env.example`.
-5. Open `.env`, add a Groq and/or Gemini API key, save, and restart the app.
+2. Download/clone this repository.
+3. Run `run_windows.bat`.
+4. Edit the created `.env` file and add your own Groq or Gemini key for AI chat.
+5. Restart the app after changing `.env`.
 
-## Manual setup
+Manual setup:
 ```powershell
 py -m venv .venv
 .venv\Scripts\activate
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 Copy-Item .env.example .env
-notepad .env
-python jarvis.py
+python jarvis_v2.py
 ```
 
-macOS/Linux: run `bash run_linux_mac.sh`.
+## Commands
+- `help`, `time`, `date`, `system info`
+- `launch notepad`, `launch calculator`, `launch paint`, `launch file explorer`, `launch task manager`, `launch chrome`, `launch edge`, `launch firefox`, `launch vscode`
+- `open YouTube`, `open Google`, `open GitHub`, `open Gmail`
+- `search Python speech recognition`
+- `open whatsapp`
+- `whatsapp search Sajin`
+- `whatsapp message Sajin | Hello, how are you?`
 
-## AI configuration
-```env
-GROQ_API_KEY=your_groq_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
-GEMINI_API_KEY=your_gemini_key_here
-GEMINI_MODEL=gemini-2.5-flash
-```
-Groq is tried first; Gemini is the fallback. Either provider is optional, and built-in commands work offline. Never place real API keys in source code or commit `.env` to GitHub. Revoke and rotate any key that has been exposed.
+## Voice
+Use the **VOICE** button and grant microphone access. Speech recognition requires a microphone and internet access for Google's speech recognition service. The optional `pyttsx3` voice output can be enabled with `JARVIS_SPEAK_RESPONSES=true` in `.env`. On Windows, if PyAudio installation fails, install a compatible PyAudio wheel for your Python version.
 
-## Example commands
-- `help`
-- `time`
-- `system info`
-- `open YouTube`
-- `search Python customtkinter`
-- `calculate (25 * 4) / 2`
-- `Explain Python threading simply`
+## WhatsApp privacy and safety
+JARVIS opens WhatsApp Web and helps prepare commands, but it does not scrape private contacts or automatically send messages. Search for the contact inside WhatsApp, verify the exact person, and send the message yourself. This avoids messages going to the wrong person. WhatsApp Web must already be logged in.
 
-## Troubleshooting
-- `No module named customtkinter`: activate the virtual environment and run `pip install -r requirements.txt`.
-- AI provider errors: check the key, model name, internet connection, and package installation.
-- Local commands work but AI does not: configure one of the API keys in `.env` and restart.
+## App control safety
+The launcher only supports an explicit allow-list in `app_control.py`; it does not execute arbitrary shell commands. Add an application alias only when you trust the executable.
 
-## Files
-- `jarvis.py` — app and GUI
+## API key security
+Keep real keys in the local `.env` file. It is excluded by `.gitignore`. Never commit API keys to GitHub. Groq is tried first; Gemini is the fallback.
+
+## Project files
+- `jarvis_v2.py` — V2 GUI, AI routing, voice button, command router, loading animation
+- `jarvis.py` — original V1 application
+- `voice_control.py` — optional microphone and TTS
+- `app_control.py` — safe allow-listed desktop app launcher
+- `whatsapp_control.py` — WhatsApp Web contact-search/message-draft helper
 - `requirements.txt` — dependencies
-- `.env.example` — AI provider settings template
-- `.gitignore` — keeps keys and virtual environments out of Git
-- `run_windows.bat` / `run_linux_mac.sh` — launch scripts
+- `run_windows.bat` — Windows setup and launcher
 
-## License
-MIT; see `LICENSE`.
+## Limitations
+The app has been committed to GitHub, but it has not been run on your specific Windows PC. Voice hardware, installed desktop applications, AI keys, and WhatsApp Web login need local testing.
