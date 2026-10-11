@@ -1,13 +1,23 @@
-# J.A.R.V.I.S. V2 — Iron Man-inspired desktop assistant
+# J.A.R.V.I.S. — Unified Iron Man-inspired desktop assistant
 
-Python desktop assistant with an animated sci-fi GUI, loading screen, sound toggle, optional microphone voice input, optional spoken responses, Groq/Gemini AI chat, allow-listed app launching, web search, WhatsApp Web helper commands, and GitHub update support.
+**The main app is now `jarvis.py`**, combining the original V1 dashboard and commands with V2 animations, voice input/output, desktop app controls, AI fallback, and WhatsApp helpers. `jarvis_v2.py` remains as a compatibility launcher.
+
+## Features
+- Sci-fi CustomTkinter dashboard, animated reactor, loading splash, clock/date, telemetry, quick links and clear-chat button.
+- Sound toggle and optional spoken responses.
+- Groq AI with Gemini fallback, configured using local `.env`.
+- Local commands: time/date/system info, safe arithmetic calculator, browser search and website shortcuts.
+- Allow-listed desktop application launching; arbitrary shell text is never executed.
+- Optional microphone input using SpeechRecognition and PyAudio.
+- WhatsApp Web contact search guidance and message draft preparation. No private-contact scraping or automatic sending.
+- GitHub safe fast-forward updater.
 
 ## Quick start (Windows 10/11)
-1. Install Python 3.10+ and Git; enable **Add Python to PATH**.
-2. Clone the repository using `git clone https://github.com/sajinstalin01/Jarvis-ai.git` (recommended for updating) or download the ZIP.
+1. Install Python 3.10+ and Git, enabling **Add Python to PATH**.
+2. Clone: `git clone https://github.com/sajinstalin01/Jarvis-ai.git`
 3. Run `run_windows.bat`.
-4. Edit the created `.env` file and add your own Groq or Gemini key for AI chat.
-5. Restart the app after changing `.env`.
+4. Add your own `GROQ_API_KEY` or `GEMINI_API_KEY` to the local `.env` file.
+5. Restart JARVIS after editing `.env`.
 
 Manual setup:
 ```powershell
@@ -18,50 +28,31 @@ py -m venv .venv
 pip install -r requirements.txt
 Copy-Item .env.example .env
 python auto_update.py
-python jarvis_v2.py
+python jarvis.py
 ```
-
-## GitHub auto-update
-- `auto_update.py` fetches `origin/main` and fast-forward pulls new commits only if the working tree is clean.
-- The Windows and Linux/macOS launchers check for updates before starting JARVIS.
-- To watch for updates every five minutes: `python auto_update.py --watch --interval 300` (minimum interval is 60 seconds).
-- The watcher updates files on disk; restart JARVIS to load changed Python code.
-- Local edits are never discarded. If the branch diverges or there are uncommitted changes, the updater stops safely and explains why.
-- For automatic updating, use a Git clone rather than the ZIP download. Git must be installed and the repository's origin must point to this project.
-- GitHub Actions compiles Python source on pushes and pull requests.
+Linux/macOS: `bash run_linux_mac.sh`.
 
 ## Commands
 - `help`, `time`, `date`, `system info`
-- `launch notepad`, `launch calculator`, `launch paint`, `launch file explorer`, `launch task manager`, `launch chrome`, `launch edge`, `launch firefox`, `launch vscode`
-- `open YouTube`, `open Google`, `open GitHub`, `open Gmail`
+- `calculate 12 * (8 + 2)`
 - `search Python speech recognition`
-- `open whatsapp`
-- `whatsapp search Sajin`
-- `whatsapp message Sajin | Hello, how are you?`
+- `open YouTube`, `open Google`, `open GitHub`, `open Gmail`, `open Wikipedia`
+- `launch notepad`, `launch calculator`, `launch paint`, `launch file explorer`, `launch task manager`, `launch chrome`, `launch edge`, `launch firefox`, `launch vscode`
+- `open whatsapp`, `whatsapp search Sajin`
+- `whatsapp message Sajin | Hello, how are you?` (draft only)
 
-## Voice
-Use the **VOICE** button and grant microphone access. Speech recognition requires a microphone and internet access for Google's speech recognition service. Optional `pyttsx3` voice output can be enabled with `JARVIS_SPEAK_RESPONSES=true` in `.env`. If PyAudio installation fails on Windows, install a compatible PyAudio wheel for your Python version.
+## Voice and AI setup
+Voice input requires SpeechRecognition, a microphone and compatible PyAudio; recognition uses Google's service and requires internet. Set `JARVIS_SPEAK_RESPONSES=true` for optional spoken replies. Groq is tried first, then Gemini. Keep API keys in local `.env`; never commit real keys.
 
-## WhatsApp privacy and safety
-JARVIS opens WhatsApp Web and helps prepare commands, but it does not scrape private contacts or automatically send messages. Search for the contact inside WhatsApp, verify the exact person, and send the message yourself. WhatsApp Web must already be logged in.
+## Auto-update
+Launchers check for GitHub updates when run from a Git clone. To watch every five minutes: `python auto_update.py --watch --interval 300`. The updater only fast-forward pulls when the working tree is clean; restart the app after an update to load changed Python code. GitHub Actions checks Python syntax on pushes and pull requests.
 
-## App control safety
-The launcher only supports an explicit allow-list in `app_control.py`; it does not execute arbitrary shell commands. Add an application alias only when you trust the executable.
+## Files
+- `jarvis.py` — unified application and integrated helpers.
+- `jarvis_v2.py` — compatibility launcher for old shortcuts.
+- `auto_update.py` — safe updater/watcher.
+- `requirements.txt`, `.env.example`, `.gitignore` — dependencies/config.
+- `run_windows.bat`, `run_linux_mac.sh` — setup, update and launch.
+- `.github/workflows/python-check.yml` — CI syntax check.
 
-## API key security
-Keep real keys in the local `.env` file. It is excluded by `.gitignore`. Never commit API keys to GitHub. Groq is tried first; Gemini is the fallback.
-
-## Project files
-- `jarvis_v2.py` — V2 GUI, AI routing, voice button, command router, loading animation
-- `jarvis.py` — original V1 application
-- `voice_control.py` — optional microphone and TTS
-- `app_control.py` — safe allow-listed desktop app launcher
-- `whatsapp_control.py` — WhatsApp Web contact-search/message-draft helper
-- `auto_update.py` — safe GitHub fetch/fast-forward updater and watcher
-- `requirements.txt` — dependencies
-- `.env.example` — settings template
-- `run_windows.bat` / `run_linux_mac.sh` — setup and launch scripts
-- `.github/workflows/python-check.yml` — syntax checks on GitHub
-
-## Limitations
-The code is committed to GitHub, but hardware, installed desktop applications, API keys, voice recognition, and WhatsApp Web login must be tested on your computer.
+Local hardware, installed apps, API keys, microphone and WhatsApp login still need testing on your computer.
