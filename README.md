@@ -11,7 +11,7 @@
 - **Expanded third-party shortcuts:** Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, VS Code, Visual Studio, Android Studio, PyCharm, IntelliJ IDEA, Git Bash, GitHub Desktop, Cursor, Windsurf, Sublime Text, Postman, Docker Desktop, Jupyter Notebook, Anaconda Navigator, MySQL Workbench, DBeaver, FileZilla, VLC, OBS Studio, Discord, Telegram, WhatsApp Desktop/Web, Spotify, Zoom, Microsoft Teams, Slack, Notion, Obsidian, Dropbox, OneDrive, Google Drive, Steam, Epic Games Launcher, 7-Zip, WinRAR, Notepad++, Photoshop, Premiere Pro, After Effects, GIMP, Blender, Audacity, HandBrake, DaVinci Resolve and Figma.
 - GUI app shortcut panel now includes Windows Security, Settings, Zoom and Notion in addition to the existing quick-launch buttons. Use commands like `launch computer management`, `launch network connections`, `launch zoom`, `launch teams`, `launch notion`, `launch cursor`, `launch docker desktop`, `launch blender`, `launch gimp`, `launch figma`, `launch postman` or `launch filezilla`. Apps must be installed and discoverable by Windows, or their executable paths must be added to `APP_ALIASES`.
 - Optional microphone input with SpeechRecognition and PyAudio; optional spoken responses with pyttsx3.
-- WhatsApp Web helper for contact-search guidance and message drafts. It never scrapes private contacts or auto-sends messages.
+- WhatsApp shortcut launches the installed WhatsApp Desktop application only. WhatsApp Web opening, contact search, and message-draft helper commands are disabled.
 - Safe GitHub fast-forward updater and GitHub Actions syntax checks.
 
 ## Quick start — Windows 10/11
@@ -35,14 +35,14 @@ python jarvis.py
 Linux/macOS: `bash run_linux_mac.sh`.
 
 ## Commands
-- `help`, `time`, `date`, `system info`
+- `help`, `time`, `date`, `system info`\n- `open <app name>` and `launch <app name>`; `open <website>`; `search <query>`\n- `launch chrome search git` or `open chrome search git` (opens Chrome and searches Google)
 - `calculate 12 * (8 + 2)`
 - `search Python speech recognition`
 - `open YouTube`, `open Google`, `open GitHub`, `open Gmail`, `open Wikipedia`
 - `launch notepad`, `launch calculator`, `launch snipping tool`, `launch powershell`, `launch device manager`
 - `launch chrome`, `launch brave`, `launch vscode`, `launch android studio`, `launch photoshop`, `launch vlc`, `launch discord`, `launch telegram`\n- `launch disk cleanup`, `launch computer management`, `launch network connections`, `launch system properties`\n- `launch zoom`, `launch teams`, `launch slack`, `launch notion`, `launch obsidian`, `launch cursor`, `launch docker desktop`, `launch blender`, `launch gimp`, `launch figma`, `launch postman`, `launch filezilla`
-- `open whatsapp`, `whatsapp search Sajin`
-- `whatsapp message Sajin | Hello, how are you?` (draft only)
+- `open whatsapp` or `launch whatsapp` (opens WhatsApp Desktop only)
+- `launch chrome search git` or `open chrome search git` (launches Chrome and searches Google)
 
 ## Voice and AI setup
 Voice input requires SpeechRecognition, a microphone and compatible PyAudio; recognition uses Google's service and requires internet. Set `JARVIS_SPEAK_RESPONSES=true` for optional spoken replies. Groq is tried first, then Gemini. Keep API keys in local `.env`; never commit real keys.
