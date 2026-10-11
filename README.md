@@ -47,8 +47,25 @@ Linux/macOS: `bash run_linux_mac.sh`.
 ## Voice and AI setup
 Voice input requires SpeechRecognition, a microphone and compatible PyAudio; recognition uses Google's service and requires internet. Set `JARVIS_SPEAK_RESPONSES=true` for optional spoken replies. Groq is tried first, then Gemini. Keep API keys in local `.env`; never commit real keys.
 
-## Auto-update
-Launchers check for GitHub updates when run from a Git clone. To watch every five minutes: `python auto_update.py --watch --interval 300`. The updater only fast-forward pulls when the working tree is clean; restart JARVIS after an update to load changed Python code.
+## Auto-update configuration
+The updater settings are in `update_config.json`:
+- `enabled`: turn automatic updates on/off.
+- `repository`: GitHub repository in `owner/name` format.
+- `branch`: branch to update from (normally `main`).
+- `git_executable`: optional full path to `git.exe` if Git is not on PATH.
+- `watch_interval_seconds`: interval for watch mode (minimum 60 seconds).
+
+The updater now searches PATH and common Git for Windows installation folders for `git.exe`. If Git is installed in a custom location, set `git_executable` in `update_config.json`, for example:
+```json
+{
+  "enabled": true,
+  "repository": "sajinstalin01/Jarvis-ai",
+  "branch": "main",
+  "git_executable": "C:\\Program Files\\Git\\cmd\\git.exe",
+  "watch_interval_seconds": 300
+}
+```
+Keep the JSON valid and use doubled backslashes in Windows paths. If Git is not installed, install Git for Windows first. Run `python auto_update.py` for one check or `python auto_update.py --watch` to keep checking. The updater only fast-forward pulls when the working tree is clean; it does not discard local edits. Restart JARVIS after an update to load changed Python code. The Windows launcher invokes the updater even if `git` is not on PATH, so it can show a helpful setup message.
 
 ## Project files
 - `jarvis.py` — unified application, voice, AI, app launcher and WhatsApp helper.
