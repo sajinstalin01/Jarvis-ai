@@ -67,7 +67,7 @@ APP_ALIASES = {
     "vlc": ("vlc.exe", "vlc"), "vlc media player": ("vlc.exe", "vlc"),
     "obs": ("obs64.exe", "obs"), "obs studio": ("obs64.exe", "obs"),
     "discord": ("Discord.exe", "discord"), "telegram": ("Telegram.exe", "telegram"),
-    "whatsapp desktop": ("WhatsApp.exe", "WhatsApp"), "spotify": ("Spotify.exe", "spotify"),
+    "whatsapp": ("WhatsApp.exe", "WhatsApp"), "whatsapp desktop": ("WhatsApp.exe", "WhatsApp"), "spotify": ("Spotify.exe", "spotify"),
     "zoom": ("Zoom.exe", "zoom"), "microsoft teams": ("ms-teams.exe", "Teams.exe"),
     "teams": ("ms-teams.exe", "Teams.exe"), "slack": ("slack.exe", "Slack"),
     "notion": ("Notion.exe", "notion"), "obsidian": ("Obsidian.exe", "obsidian"),
@@ -83,14 +83,26 @@ APP_ALIASES = {
     "handbrake": ("HandBrake.exe", "HandBrake"), "davinci resolve": ("Resolve.exe",),
     "figma": ("Figma.exe", "figma"),
 }
-def launch_app(name):
+def launch_app(name, search_query=None):
+    """Launch an allow-listed desktop app; optionally search from a browser."""
     key = name.strip().lower()
     if key == "whatsapp":
-        webbrowser.open("https://web.whatsapp.com/")
-        return True, "Opening WhatsApp Web. Sign in if needed."
+        key = "whatsapp desktop"
     candidates = APP_ALIASES.get(key)
     if not candidates:
-        return False, "App isn't in JARVIS's safe launch list. Try 'help' to see supported shortcuts."
+        return False, f"'{name}' is not in JARVIS's app shortcuts. Type 'help' to see supported names."
+
+    search_url = (
+        "https://www.google.com/search?q=" + urllib.parse.quote(search_query)
+        if search_query else None
+    )
+    browser_keys = {
+        "chrome", "google chrome", "edge", "microsoft edge", "firefox",
+        "brave", "opera", "vivaldi", "arc"
+    }
+    if search_query and key not in browser_keys:
+        return False, "Search syntax is for browsers. Try: launch chrome search git"
+
     try:
         if platform.system() == "Windows":
             for candidate in candidates:
@@ -102,54 +114,77 @@ def launch_app(name):
                     if expanded.lower().endswith((".msc", ".cpl")):
                         os.startfile(expanded)
                     else:
-                        subprocess.Popen([expanded], shell=False)
-                    return True, f"Launching {name}."
-            # Fixed allow-list target: never pass arbitrary user input to a shell.
+                        args = [expanded]
+                        if search_url:
+                            args.append(search_url)
+                        subprocess.Popen(args, shell=False)
+                    return True, (
+                        f"Launching {name} and searching for '{search_query}'."
+                        if search_query else f"Launching {name}."
+                    )
+            # Keep the fallback limited to fixed, allow-listed executable names.
             target = candidates[0]
-            subprocess.Popen(["cmd", "/c", "start", "", target], shell=False)
-            return True, f"Asked Windows to open {name}. If it did not appear, check whether it is installed."
+            args = ["cmd", "/c", "start", "", target]
+            if search_url:
+                args.append(search_url)
+            subprocess.Popen(args, shell=False)
+            return True, (
+                f"Asked Windows to launch {name} and search for '{search_query}'. "
+                "If it did not open, check that the app is installed."
+                if search_query else
+                f"Asked Windows to open {name}. If it did not appear, check whether it is installed."
+            )
+
         if key == "settings":
             if platform.system() == "Darwin":
                 subprocess.Popen(["open", "-a", "System Settings"])
             else:
                 subprocess.Popen(["xdg-open", "settings://"])
             return True, "Opening system settings."
-        if key in ("whatsapp", "whatsapp desktop"):
-            webbrowser.open("https://web.whatsapp.com/")
-            return True, "Opening WhatsApp Web."
+
         target = candidates[-1]
         if platform.system() == "Darwin":
-            aliases = {"notepad":"TextEdit", "calculator":"Calculator", "paint":"Preview",
-                       "file explorer":"Finder", "task manager":"Activity Monitor",
-                       "vscode":"Visual Studio Code", "visual studio code":"Visual Studio Code",
-                       "android studio":"Android Studio", "telegram":"Telegram", "discord":"Discord",
-                       "spotify":"Spotify", "vlc":"VLC"}
-            subprocess.Popen(["open", "-a", aliases.get(key, target)])
+            aliases = {
+                "notepad": "TextEdit", "calculator": "Calculator", "paint": "Preview",
+                "file explorer": "Finder", "task manager": "Activity Monitor",
+                "vscode": "Visual Studio Code", "visual studio code": "Visual Studio Code",
+                "android studio": "Android Studio", "telegram": "Telegram",
+                "discord": "Discord", "spotify": "Spotify", "vlc": "VLC",
+                "whatsapp desktop": "WhatsApp",
+            }
+            command = ["open", "-a", aliases.get(key, target)]
+            if search_url:
+                command.extend(["--args", search_url])
+            subprocess.Popen(command)
         else:
-            aliases = {"notepad":"gedit", "calculator":"gnome-calculator", "paint":"pinta",
-                       "file explorer":"xdg-open", "task manager":"gnome-system-monitor",
-                       "terminal":"x-terminal-emulator", "chrome":"google-chrome", "edge":"microsoft-edge"}
+            aliases = {
+                "notepad": "gedit", "calculator": "gnome-calculator", "paint": "pinta",
+                "file explorer": "xdg-open", "task manager": "gnome-system-monitor",
+                "terminal": "x-terminal-emulator", "chrome": "google-chrome",
+                "edge": "microsoft-edge", "whatsapp desktop": "whatsapp-for-linux",
+            }
             cmd = aliases.get(key, target)
             if not shutil.which(cmd):
                 return False, f"{cmd} was not found. Install it or update the app alias."
-            subprocess.Popen([cmd, str(Path.home())] if key == "file explorer" else [cmd])
-        return True, f"Launching {name}."
+            args = [cmd]
+            if key == "file explorer":
+                args.append(str(Path.home()))
+            elif search_url:
+                args.append(search_url)
+            subprocess.Popen(args)
+        return True, (
+            f"Launching {name} and searching for '{search_query}'."
+            if search_query else f"Launching {name}."
+        )
     except Exception as exc:
         return False, f"Couldn't launch {name}: {exc}"
 
 def web_search(query):
+    query = query.strip()
+    if not query:
+        return "Enter a search query."
     webbrowser.open("https://www.google.com/search?q=" + urllib.parse.quote(query))
-def whatsapp_open():
-    webbrowser.open("https://web.whatsapp.com/")
-    return "WhatsApp Web opened. Sign in if needed, then find the exact contact."
-def whatsapp_search(name):
-    name = name.strip()
-    if not name: return "Usage: whatsapp search <contact name>"
-    webbrowser.open("https://web.whatsapp.com/")
-    return f"WhatsApp Web opened. Search for '{name}' inside WhatsApp and verify the person. Private contacts are not read."
-def whatsapp_message(contact, message):
-    if not contact.strip() or not message.strip(): return "Format: whatsapp message <contact> | <message>"
-    return f"Draft for {contact.strip()} (NOT SENT):\n\n{message.strip()}\n\nSelect and verify the contact in WhatsApp, then send manually."
+    return "Opened a browser search for: " + query
 
 def safe_calculate(expr):
     ops = {ast.Add:operator.add, ast.Sub:operator.sub, ast.Mult:operator.mul, ast.Div:operator.truediv,
@@ -190,7 +225,7 @@ class JarvisApp(ctk.CTk):
         side.grid(row=0,column=0,sticky="nsew"); side.grid_propagate(False)
         ctk.CTkLabel(side,text="J.A.R.V.I.S.",font=ctk.CTkFont(size=26,weight="bold"),text_color=CYAN).pack(anchor="w",padx=18,pady=(26,2))
         ctk.CTkLabel(side,text="PERSONAL AI INTERFACE",font=ctk.CTkFont(size=10,weight="bold"),text_color=MUTED).pack(anchor="w",padx=20,pady=(0,24))
-        for label,fn in [("◈  Dashboard",lambda:self.add("SYSTEM","Dashboard online.")),("✧  AI Assistant",lambda:self.entry.focus_set()),("⌘  System Tools",self.show_tools),("◉  WhatsApp",lambda:self.add("WHATSAPP","Try whatsapp search <name> or whatsapp message <name> | <text>")),("⚙  Settings",self.show_settings)]:
+        for label,fn in [("◈  Dashboard",lambda:self.add("SYSTEM","Dashboard online.")),("✧  AI Assistant",lambda:self.entry.focus_set()),("⌘  System Tools",self.show_tools),("◉  WhatsApp",lambda:self.launch_shortcut("WhatsApp")),("⚙  Settings",self.show_settings)]:
             ctk.CTkButton(side,text=label,command=fn,anchor="w",height=42,corner_radius=10,fg_color="transparent",hover_color="#12314A",text_color="#D7E8F4").pack(fill="x",padx=12,pady=4)
         ctk.CTkFrame(side,height=1,fg_color="#17364B").pack(fill="x",padx=14,pady=(20,14))
         ctk.CTkLabel(side,text="CORE STATUS",font=ctk.CTkFont(size=11,weight="bold"),text_color=MUTED).pack(anchor="w",padx=18)
@@ -304,29 +339,46 @@ class JarvisApp(ctk.CTk):
     def command(self,text):
         p=text.strip().lower()
         if p in ("help","commands","what can you do"):
-            return ("Commands:\n• help, time, date, system info\n• calculate <math expression>\n• search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia\n• launch <app name> — Windows tools, browsers, developer apps, media apps and utilities\n• Windows tools: launch disk cleanup, launch computer management, launch network connections, launch system properties\n• Apps: launch zoom, launch teams, launch slack, launch notion, launch obsidian, launch cursor, launch docker desktop, launch blender, launch gimp, launch figma, launch postman, launch filezilla\n• examples: launch snipping tool, launch powershell, launch android studio, launch photoshop, launch vlc\n• open whatsapp; whatsapp search <contact>\n• whatsapp message <contact> | <message> (draft only)\n• ask a question for Groq/Gemini AI\n\nConfigure GROQ_API_KEY or GEMINI_API_KEY in .env for AI chat.")
+            return ("Commands:\n• help, time, date, system info\n• calculate <math expression>\n• search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia\n• launch <app name> — Windows tools, browsers, developer apps, media apps and utilities\n• Windows tools: launch disk cleanup, launch computer management, launch network connections, launch system properties\n• Apps: launch zoom, launch teams, launch slack, launch notion, launch obsidian, launch cursor, launch docker desktop, launch blender, launch gimp, launch figma, launch postman, launch filezilla\n• examples: launch snipping tool, launch powershell, launch android studio, launch photoshop, launch vlc\n• open whatsapp / launch whatsapp — launches the installed WhatsApp Desktop app only\n• launch chrome search git — launches Chrome and searches Google for git\n• open <app name> / launch <app name>; open <website>; search <query>\n• ask a question for Groq/Gemini AI\n\nConfigure GROQ_API_KEY or GEMINI_API_KEY in .env for AI chat.")
         if p in ("hi","hello","hey","hello jarvis","hi jarvis"):return "Hello, Boss. All primary systems are standing by."
         if p=="time" or "what time" in p:return "Local time: "+datetime.datetime.now().strftime("%I:%M:%S %p")
         if p in ("date","today's date","what is today's date") or "what date" in p:return "Today is "+datetime.datetime.now().strftime("%A, %d %B %Y")
         if p in ("system info","computer info","system status"):
             return f"Host: {socket.gethostname()}\nOS: {platform.platform()}\nPython: {platform.python_version()}\nArchitecture: {platform.machine()}\nProcessor: {platform.processor() or 'Not reported'}"
-        if p in ("open whatsapp","whatsapp"):return whatsapp_open()
-        if p.startswith("whatsapp search "):return whatsapp_search(text[len("whatsapp search "):])
-        if p.startswith("whatsapp message "):
-            payload=text[len("whatsapp message "):]
-            if "|" not in payload:return "Format: whatsapp message <contact> | <message>"
-            contact,msg=payload.split("|",1); return whatsapp_message(contact,msg)
-        if p.startswith("launch "):return launch_app(text[7:].strip())[1]
+        if p in ("whatsapp", "open whatsapp", "launch whatsapp", "open whatsapp desktop", "launch whatsapp desktop"):
+            return launch_app("whatsapp")[1]
         if p.startswith("search "):
-            q=text[7:].strip()
-            if not q:return "Enter a query after 'search'."
-            web_search(q); return "Opened a browser search for: "+q
-        if p.startswith("calculate "):return safe_calculate(text[10:].strip())
-        if p.startswith("open "):
-            target=p[5:].strip()
-            urls={"youtube":"https://youtube.com","google":"https://google.com","github":"https://github.com/sajinstalin01/Jarvis-ai","jarvis github":"https://github.com/sajinstalin01/Jarvis-ai","gmail":"https://mail.google.com","wikipedia":"https://wikipedia.org"}
-            if target in urls:webbrowser.open(urls[target]); return f"Opening {target.title()} in your default browser."
-            return "Unknown shortcut. Try YouTube, Google, GitHub, Gmail, or Wikipedia."
+            return web_search(text[7:].strip())
+        if p.startswith("calculate "):
+            return safe_calculate(text[10:].strip())
+        if p.startswith("launch ") or p.startswith("open "):
+            verb, remainder = text.split(" ", 1)
+            remainder = remainder.strip()
+            if not remainder:
+                return f"Usage: {verb} <app name or website>"
+            # Syntax such as "launch chrome search git" or "open chrome search git".
+            app_name, separator, query = remainder.partition(" search ")
+            if separator:
+                app_name = app_name.strip()
+                query = query.strip()
+                if not query:
+                    return "Add search words after 'search'. Example: launch chrome search git"
+                ok, message = launch_app(app_name, search_query=query)
+                return message
+            target = remainder.lower()
+            urls = {
+                "youtube":"https://youtube.com",
+                "google":"https://google.com",
+                "github":"https://github.com/sajinstalin01/Jarvis-ai",
+                "jarvis github":"https://github.com/sajinstalin01/Jarvis-ai",
+                "gmail":"https://mail.google.com",
+                "wikipedia":"https://wikipedia.org",
+            }
+            if target in urls:
+                webbrowser.open(urls[target])
+                return f"Opening {remainder.title()} in your default browser."
+            ok, message = launch_app(remainder)
+            return message
         return None
     def ask_ai(self,prompt):
         groq_key=os.getenv("GROQ_API_KEY","").strip(); gemini_key=os.getenv("GEMINI_API_KEY","").strip(); error="GROQ_API_KEY not configured"
@@ -369,7 +421,7 @@ class JarvisApp(ctk.CTk):
         ok, message = launch_app(name)
         self.add("APP LAUNCHER", message if ok else "⚠ " + message)
     def show_tools(self):
-        self.add("TOOLS","Try time, date, system info, calculate <expression>, search <query>, launch <app name>, or WhatsApp helper commands. Supported shortcuts include Windows utilities, browsers, development tools, media apps and third-party apps. Arbitrary shell commands are disabled.")
+        self.add("TOOLS","Try time, date, system info, calculate <expression>, search <query>, open <app or website>, launch <app>, or launch chrome search git. WhatsApp opens the installed desktop app only; WhatsApp Web search/message helpers are disabled. Arbitrary shell commands are disabled.")
     def show_settings(self):
         self.add("SETTINGS","Configure GROQ_API_KEY, GROQ_MODEL, GEMINI_API_KEY, GEMINI_MODEL and JARVIS_SPEAK_RESPONSES in your local .env. Restart after changing settings.")
 
