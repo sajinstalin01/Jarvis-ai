@@ -19,33 +19,96 @@ def load_env():
 load_env()
 CYAN, BG, PANEL, GREEN, MUTED = "#00D9FF", "#07111F", "#0B1B2C", "#4DFFB5", "#8196AD"
 
-APP_ALIASES = {"notepad":"notepad.exe", "calculator":"calc.exe", "paint":"mspaint.exe",
- "file explorer":"explorer.exe", "task manager":"taskmgr.exe", "chrome":"chrome",
- "edge":"msedge", "firefox":"firefox", "vscode":"code", "visual studio code":"code"}
+# App aliases are deliberately allow-listed. Values are candidate executable names or paths.
+APP_ALIASES = {
+    # Windows built-ins
+    "notepad": ("notepad.exe",), "calculator": ("calc.exe",), "paint": ("mspaint.exe",),
+    "file explorer": ("explorer.exe",), "explorer": ("explorer.exe",),
+    "task manager": ("taskmgr.exe",), "settings": ("ms-settings:",),
+    "snipping tool": ("SnippingTool.exe", "snippingtool.exe"),
+    "powershell": ("powershell.exe",), "terminal": ("wt.exe", "WindowsTerminal.exe"),
+    "command prompt": ("cmd.exe",), "cmd": ("cmd.exe",), "control panel": ("control.exe",),
+    "device manager": ("devmgmt.msc",), "disk management": ("diskmgmt.msc",),
+    "services": ("services.msc",), "event viewer": ("eventvwr.msc",),
+    "task scheduler": ("taskschd.msc",), "system information": ("msinfo32.exe",),
+    "resource monitor": ("resmon.exe",), "registry editor": ("regedit.exe",),
+    "windows security": ("windowsdefender:",), "magnifier": ("magnify.exe",),
+    "on screen keyboard": ("osk.exe",), "remote desktop": ("mstsc.exe",), "winver": ("winver.exe",),
+    # Browsers
+    "chrome": ("chrome.exe", "chrome"), "google chrome": ("chrome.exe", "chrome"),
+    "edge": ("msedge.exe", "msedge"), "microsoft edge": ("msedge.exe", "msedge"),
+    "firefox": ("firefox.exe", "firefox"), "brave": ("brave.exe", "brave"),
+    "opera": ("opera.exe", "opera"), "vivaldi": ("vivaldi.exe", "vivaldi"),
+    # Development tools
+    "vscode": ("Code.exe", "code"), "visual studio code": ("Code.exe", "code"),
+    "visual studio": ("devenv.exe",), "android studio": ("studio64.exe", "studio"),
+    "pycharm": ("pycharm64.exe", "pycharm"), "intellij idea": ("idea64.exe", "idea"),
+    "git bash": ("git-bash.exe", "git-bash"), "github desktop": ("GitHubDesktop.exe", "github"),
+    # Media, chat and gaming
+    "vlc": ("vlc.exe", "vlc"), "vlc media player": ("vlc.exe", "vlc"),
+    "obs": ("obs64.exe", "obs"), "obs studio": ("obs64.exe", "obs"),
+    "discord": ("Discord.exe", "discord"), "telegram": ("Telegram.exe", "telegram"),
+    "whatsapp desktop": ("WhatsApp.exe", "WhatsApp"), "spotify": ("Spotify.exe", "spotify"),
+    "steam": ("steam.exe", "steam"), "epic games": ("EpicGamesLauncher.exe",),
+    # Utilities and creative apps
+    "7zip": ("7zFM.exe", "7zFM"), "7-zip": ("7zFM.exe", "7zFM"),
+    "winrar": ("WinRAR.exe", "WinRAR"), "notepad++": ("notepad++.exe", "notepad++"),
+    "photoshop": ("Photoshop.exe",), "premiere pro": ("Adobe Premiere Pro.exe",),
+    "after effects": ("AfterFX.exe",),
+}
 def launch_app(name):
     key = name.strip().lower()
-    if key == "settings" and platform.system() == "Windows":
-        try: os.startfile("ms-settings:"); return True, "Opening Windows Settings."
-        except Exception as e: return False, str(e)
     if key == "whatsapp":
-        webbrowser.open("https://web.whatsapp.com/"); return True, "Opening WhatsApp Web."
-    target = APP_ALIASES.get(key)
-    if not target: return False, "App isn't in JARVIS's safe launch list."
+        webbrowser.open("https://web.whatsapp.com/")
+        return True, "Opening WhatsApp Web. Sign in if needed."
+    candidates = APP_ALIASES.get(key)
+    if not candidates:
+        return False, "App isn't in JARVIS's safe launch list. Try 'help' to see supported shortcuts."
     try:
         if platform.system() == "Windows":
+            for candidate in candidates:
+                expanded = os.path.expandvars(candidate)
+                if expanded.endswith(":") or expanded.endswith("://"):
+                    os.startfile(expanded)
+                    return True, f"Opening {name}."
+                if os.path.isfile(expanded) or shutil.which(expanded):
+                    if expanded.lower().endswith((".msc", ".cpl")):
+                        os.startfile(expanded)
+                    else:
+                        subprocess.Popen([expanded], shell=False)
+                    return True, f"Launching {name}."
+            # Fixed allow-list target: never pass arbitrary user input to a shell.
+            target = candidates[0]
             subprocess.Popen(["cmd", "/c", "start", "", target], shell=False)
-        elif platform.system() == "Darwin":
+            return True, f"Asked Windows to open {name}. If it did not appear, check whether it is installed."
+        if key == "settings":
+            if platform.system() == "Darwin":
+                subprocess.Popen(["open", "-a", "System Settings"])
+            else:
+                subprocess.Popen(["xdg-open", "settings://"])
+            return True, "Opening system settings."
+        if key in ("whatsapp", "whatsapp desktop"):
+            webbrowser.open("https://web.whatsapp.com/")
+            return True, "Opening WhatsApp Web."
+        target = candidates[-1]
+        if platform.system() == "Darwin":
             aliases = {"notepad":"TextEdit", "calculator":"Calculator", "paint":"Preview",
-                       "file explorer":"Finder", "task manager":"Activity Monitor", "vscode":"Visual Studio Code"}
+                       "file explorer":"Finder", "task manager":"Activity Monitor",
+                       "vscode":"Visual Studio Code", "visual studio code":"Visual Studio Code",
+                       "android studio":"Android Studio", "telegram":"Telegram", "discord":"Discord",
+                       "spotify":"Spotify", "vlc":"VLC"}
             subprocess.Popen(["open", "-a", aliases.get(key, target)])
         else:
             aliases = {"notepad":"gedit", "calculator":"gnome-calculator", "paint":"pinta",
-                       "file explorer":"xdg-open", "task manager":"gnome-system-monitor"}
+                       "file explorer":"xdg-open", "task manager":"gnome-system-monitor",
+                       "terminal":"x-terminal-emulator", "chrome":"google-chrome", "edge":"microsoft-edge"}
             cmd = aliases.get(key, target)
-            if not shutil.which(cmd): return False, f"{cmd} was not found."
+            if not shutil.which(cmd):
+                return False, f"{cmd} was not found. Install it or update the app alias."
             subprocess.Popen([cmd, str(Path.home())] if key == "file explorer" else [cmd])
         return True, f"Launching {name}."
-    except Exception as e: return False, f"Couldn't launch {name}: {e}"
+    except Exception as exc:
+        return False, f"Couldn't launch {name}: {exc}"
 
 def web_search(query):
     webbrowser.open("https://www.google.com/search?q=" + urllib.parse.quote(query))
@@ -138,6 +201,13 @@ class JarvisApp(ctk.CTk):
         for i,(label,url) in enumerate([("Open YouTube","https://youtube.com"),("Open Google","https://google.com"),("Open GitHub","https://github.com/sajinstalin01/Jarvis-ai"),("Open Gmail","https://mail.google.com")]):
             ctk.CTkButton(actions,text=label,height=36,fg_color="#10283B",hover_color="#19425A",anchor="w",command=lambda u=url:self.open_url(u)).grid(row=1+i//2,column=i%2,sticky="ew",padx=7,pady=5)
         ctk.CTkLabel(actions,text="Browser shortcuts use your default browser.",text_color="#5F7B90",font=ctk.CTkFont(size=10)).grid(row=3,column=0,columnspan=2,padx=12,pady=(8,13),sticky="w")
+        apps=ctk.CTkFrame(right,fg_color=PANEL,border_width=1,border_color="#14334B",corner_radius=16)
+        apps.grid(row=2,column=0,sticky="ew",pady=(12,0)); apps.grid_columnconfigure((0,1),weight=1)
+        ctk.CTkLabel(apps,text="APP SHORTCUTS",text_color=CYAN,font=ctk.CTkFont(size=13,weight="bold")).grid(row=0,column=0,columnspan=2,sticky="w",padx=16,pady=(13,8))
+        for i,name in enumerate(("Notepad","Calculator","File Explorer","Task Manager","Snipping Tool","PowerShell","Chrome","VS Code","Android Studio","VLC","Discord","Telegram","Spotify","WhatsApp")):
+            ctk.CTkButton(apps,text=name,height=31,fg_color="#10283B",hover_color="#19425A",
+                          command=lambda n=name:self.launch_shortcut(n)).grid(row=1+i//2,column=i%2,sticky="ew",padx=6,pady=3)
+        ctk.CTkLabel(apps,text="More: launch <app name> • Some shortcuts require installation.",text_color="#5F7B90",font=ctk.CTkFont(size=10)).grid(row=8,column=0,columnspan=2,padx=12,pady=(7,12),sticky="w")
         ctk.CTkLabel(main,text="JARVIS // UNIFIED PYTHON EDITION",text_color="#456176",font=ctk.CTkFont(size=10)).grid(row=2,column=0,sticky="ew",pady=(10,0))
 
     def draw_reactor(self):
@@ -207,7 +277,7 @@ class JarvisApp(ctk.CTk):
     def command(self,text):
         p=text.strip().lower()
         if p in ("help","commands","what can you do"):
-            return ("Commands:\n• help, time, date, system info\n• calculate <math expression>\n• search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia\n• launch notepad/calculator/paint/file explorer/task manager/chrome/edge/firefox/vscode\n• open whatsapp; whatsapp search <contact>\n• whatsapp message <contact> | <message> (draft only)\n• ask a question for Groq/Gemini AI\n\nConfigure GROQ_API_KEY or GEMINI_API_KEY in .env for AI chat.")
+            return ("Commands:\\n• help, time, date, system info\\n• calculate <math expression>\\n• search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia\\n• launch <app name> — Windows tools, browsers, developer apps, media apps and utilities\\n• examples: launch snipping tool, launch powershell, launch android studio, launch photoshop, launch vlc\\n• open whatsapp; whatsapp search <contact>\\n• whatsapp message <contact> | <message> (draft only)\\n• ask a question for Groq/Gemini AI\\n\\nConfigure GROQ_API_KEY or GEMINI_API_KEY in .env for AI chat.")
         if p in ("hi","hello","hey","hello jarvis","hi jarvis"):return "Hello, Boss. All primary systems are standing by."
         if p=="time" or "what time" in p:return "Local time: "+datetime.datetime.now().strftime("%I:%M:%S %p")
         if p in ("date","today's date","what is today's date") or "what date" in p:return "Today is "+datetime.datetime.now().strftime("%A, %d %B %Y")
@@ -268,8 +338,11 @@ class JarvisApp(ctk.CTk):
         self.ai_status.configure(text="● AI: KEY CONFIGURED" if configured else "● AI: NOT CONFIGURED",text_color=GREEN if configured else MUTED)
     def open_url(self,url):
         webbrowser.open(url); self.add("J.A.R.V.I.S.",f"Opening {url}")
+    def launch_shortcut(self, name):
+        ok, message = launch_app(name)
+        self.add("APP LAUNCHER", message if ok else "⚠ " + message)
     def show_tools(self):
-        self.add("TOOLS","Try time, date, system info, calculate <expression>, search <query>, launch <app>, or WhatsApp helper commands. Arbitrary shell commands are disabled.")
+        self.add("TOOLS","Try time, date, system info, calculate <expression>, search <query>, launch <app name>, or WhatsApp helper commands. Supported shortcuts include Windows utilities, browsers, development tools, media apps and third-party apps. Arbitrary shell commands are disabled.")
     def show_settings(self):
         self.add("SETTINGS","Configure GROQ_API_KEY, GROQ_MODEL, GEMINI_API_KEY, GEMINI_MODEL and JARVIS_SPEAK_RESPONSES in your local .env. Restart after changing settings.")
 
