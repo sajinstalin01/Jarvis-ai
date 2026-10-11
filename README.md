@@ -1,19 +1,21 @@
 # J.A.R.V.I.S. — Unified Iron Man-inspired desktop assistant
 
-**The main app is now `jarvis.py`**, combining the original V1 dashboard and commands with V2 animations, voice input/output, desktop app controls, AI fallback, and WhatsApp helpers. `jarvis_v2.py` remains as a compatibility launcher.
+**One main application: `jarvis.py`.** The original V1 and V2 features are integrated into this file. The separate `jarvis_v2.py` compatibility file has been removed.
 
 ## Features
-- Sci-fi CustomTkinter dashboard, animated reactor, loading splash, clock/date, telemetry, quick links and clear-chat button.
+- Sci-fi CustomTkinter dashboard, animated reactor, loading splash, clock/date, system telemetry, quick links and clear-chat button.
 - Sound toggle and optional spoken responses.
-- Groq AI with Gemini fallback, configured using local `.env`.
+- Groq AI with Gemini fallback using keys from local `.env`.
 - Local commands: time/date/system info, safe arithmetic calculator, browser search and website shortcuts.
-- Allow-listed desktop application launching; arbitrary shell text is never executed.
-- Optional microphone input using SpeechRecognition and PyAudio.
-- WhatsApp Web contact search guidance and message draft preparation. No private-contact scraping or automatic sending.
-- GitHub safe fast-forward updater.
+- **Windows app shortcuts:** Notepad, Calculator, Paint, File Explorer, Task Manager, Settings, Snipping Tool, PowerShell, Terminal, Command Prompt, Control Panel, Device Manager, Disk Management, Services, Event Viewer, Task Scheduler, System Information, Resource Monitor, Registry Editor, Windows Security, Magnifier, On-Screen Keyboard and Remote Desktop.
+- **Third-party shortcuts:** Chrome, Edge, Firefox, Brave, Opera, Vivaldi, VS Code, Visual Studio, Android Studio, PyCharm, IntelliJ IDEA, Git Bash, GitHub Desktop, VLC, OBS Studio, Discord, Telegram, WhatsApp Web, Spotify, Steam, Epic Games Launcher, 7-Zip, WinRAR, Notepad++, Photoshop, Premiere Pro and After Effects.
+- GUI app shortcut panel plus commands like `launch android studio`, `launch photoshop` or `launch snipping tool`. Apps must be installed and registered/on PATH or in a standard location for Windows to find them.
+- Optional microphone input with SpeechRecognition and PyAudio; optional spoken responses with pyttsx3.
+- WhatsApp Web helper for contact-search guidance and message drafts. It never scrapes private contacts or auto-sends messages.
+- Safe GitHub fast-forward updater and GitHub Actions syntax checks.
 
-## Quick start (Windows 10/11)
-1. Install Python 3.10+ and Git, enabling **Add Python to PATH**.
+## Quick start — Windows 10/11
+1. Install Python 3.10+ and Git; enable **Add Python to PATH**.
 2. Clone: `git clone https://github.com/sajinstalin01/Jarvis-ai.git`
 3. Run `run_windows.bat`.
 4. Add your own `GROQ_API_KEY` or `GEMINI_API_KEY` to the local `.env` file.
@@ -37,7 +39,8 @@ Linux/macOS: `bash run_linux_mac.sh`.
 - `calculate 12 * (8 + 2)`
 - `search Python speech recognition`
 - `open YouTube`, `open Google`, `open GitHub`, `open Gmail`, `open Wikipedia`
-- `launch notepad`, `launch calculator`, `launch paint`, `launch file explorer`, `launch task manager`, `launch chrome`, `launch edge`, `launch firefox`, `launch vscode`
+- `launch notepad`, `launch calculator`, `launch snipping tool`, `launch powershell`, `launch device manager`
+- `launch chrome`, `launch brave`, `launch vscode`, `launch android studio`, `launch photoshop`, `launch vlc`, `launch discord`, `launch telegram`
 - `open whatsapp`, `whatsapp search Sajin`
 - `whatsapp message Sajin | Hello, how are you?` (draft only)
 
@@ -45,14 +48,13 @@ Linux/macOS: `bash run_linux_mac.sh`.
 Voice input requires SpeechRecognition, a microphone and compatible PyAudio; recognition uses Google's service and requires internet. Set `JARVIS_SPEAK_RESPONSES=true` for optional spoken replies. Groq is tried first, then Gemini. Keep API keys in local `.env`; never commit real keys.
 
 ## Auto-update
-Launchers check for GitHub updates when run from a Git clone. To watch every five minutes: `python auto_update.py --watch --interval 300`. The updater only fast-forward pulls when the working tree is clean; restart the app after an update to load changed Python code. GitHub Actions checks Python syntax on pushes and pull requests.
+Launchers check for GitHub updates when run from a Git clone. To watch every five minutes: `python auto_update.py --watch --interval 300`. The updater only fast-forward pulls when the working tree is clean; restart JARVIS after an update to load changed Python code.
 
-## Files
-- `jarvis.py` — unified application and integrated helpers.
-- `jarvis_v2.py` — compatibility launcher for old shortcuts.
+## Project files
+- `jarvis.py` — unified application, voice, AI, app launcher and WhatsApp helper.
 - `auto_update.py` — safe updater/watcher.
 - `requirements.txt`, `.env.example`, `.gitignore` — dependencies/config.
 - `run_windows.bat`, `run_linux_mac.sh` — setup, update and launch.
 - `.github/workflows/python-check.yml` — CI syntax check.
 
-Local hardware, installed apps, API keys, microphone and WhatsApp login still need testing on your computer.
+**Notes:** Some third-party applications need their own installation and may not be discoverable if installed in a custom folder. Add an executable path to `APP_ALIASES` in `jarvis.py` if needed. JARVIS never executes arbitrary shell commands. WhatsApp sending stays manual.
