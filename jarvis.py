@@ -206,7 +206,7 @@ class JarvisApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         ctk.set_appearance_mode("dark"); ctk.set_default_color_theme("blue")
-        self.title("J.A.R.V.I.S. // Unified Stark Desktop"); self.geometry("1320x830"); self.minsize(980,670); self.configure(fg_color=BG)
+        self.title("J.A.R.V.I.S. // Unified Stark Desktop"); self.geometry("1440x900"); self.minsize(1080,720); self.configure(fg_color=BG)
         self.events=queue.Queue(); self.busy=False; self.sound=True; self.sr=None; self.tts=None
         try:
             import speech_recognition as sr
@@ -218,7 +218,8 @@ class JarvisApp(ctk.CTk):
         except Exception: pass
         self.grid_columnconfigure(1,weight=1); self.grid_rowconfigure(0,weight=1)
         self.build_ui(); self.clock_tick(); self.after(100,self.poll); self.system_status(); self.splash(); self.animate()
-        self.add("J.A.R.V.I.S.","All core systems online, Boss. Type 'help' to see commands.")
+        self.start_gemini_validation()
+        self.add("J.A.R.V.I.S.","Dashboard ready. Gemini API validation is running in the background. Type 'help' to see commands.")
 
     def build_ui(self):
         side=ctk.CTkFrame(self,width=220,corner_radius=0,fg_color="#081522",border_width=1,border_color="#12334A")
@@ -231,6 +232,10 @@ class JarvisApp(ctk.CTk):
         ctk.CTkLabel(side,text="CORE STATUS",font=ctk.CTkFont(size=11,weight="bold"),text_color=MUTED).pack(anchor="w",padx=18)
         self.core=ctk.CTkLabel(side,text="● INITIALIZING",text_color="#FFCA71"); self.core.pack(anchor="w",padx=18,pady=(8,4))
         self.ai_status=ctk.CTkLabel(side,text="● AI: CHECKING",text_color=MUTED); self.ai_status.pack(anchor="w",padx=18,pady=4)
+        self.gemini_status=ctk.CTkLabel(side,text="● GEMINI: WAITING",text_color=MUTED); self.gemini_status.pack(anchor="w",padx=18,pady=4)
+        ctk.CTkFrame(side,height=1,fg_color="#17364B").pack(fill="x",padx=14,pady=(14,10))
+        ctk.CTkLabel(side,text="QUICK STATUS",font=ctk.CTkFont(size=11,weight="bold"),text_color=MUTED).pack(anchor="w",padx=18,pady=(0,5))
+        ctk.CTkLabel(side,text="AI providers\nGroq → Gemini fallback\nKeys stay in local .env",justify="left",text_color="#55748A",font=ctk.CTkFont(size=10)).pack(anchor="w",padx=18)
         ctk.CTkLabel(side,text="ALLOW-LISTED APP CONTROL\nWhatsApp sending stays manual.",justify="left",text_color="#55748A",font=ctk.CTkFont(size=10)).pack(side="bottom",anchor="w",padx=18,pady=20)
         main=ctk.CTkFrame(self,fg_color=BG,corner_radius=0); main.grid(row=0,column=1,sticky="nsew",padx=18,pady=16); main.grid_columnconfigure(0,weight=1); main.grid_rowconfigure(1,weight=1)
         head=ctk.CTkFrame(main,fg_color="transparent"); head.grid(row=0,column=0,sticky="ew",pady=(0,12))
@@ -404,17 +409,51 @@ class JarvisApp(ctk.CTk):
                 kind,msg=self.events.get_nowait()
                 if kind=="status":self.core.configure(text="● "+msg[:22].upper(),text_color=GREEN)
                 elif kind=="ai":self.ai_status.configure(text="● AI: "+msg,text_color=GREEN if msg!="OFFLINE" else MUTED)
+                elif kind=="gemini_validation":
+                    if msg=="VALID":
+                        self.gemini_status.configure(text="● GEMINI: VALID",text_color=GREEN)
+                        self.add("SYSTEM","Gemini API key validated successfully.")
+                    elif msg=="INVALID":
+                        self.gemini_status.configure(text="● GEMINI: INVALID KEY",text_color="#FF7070")
+                        self.add("SYSTEM","Gemini API key validation failed. Check GEMINI_API_KEY in your local .env; the key itself is never displayed.")
+                    elif msg=="ERROR":
+                        self.gemini_status.configure(text="● GEMINI: CHECK FAILED",text_color="#FFCA71")
+                        self.add("SYSTEM","Could not validate Gemini right now (network/API issue). JARVIS will retry through its normal AI fallback when you ask a question.")
+                    else:
+                        self.gemini_status.configure(text="● GEMINI: NOT CONFIGURED",text_color=MUTED)
                 elif kind=="voice":
                     self.entry.delete(0,"end"); self.entry.insert(0,msg); self.send()
                 else:
                     self.add("J.A.R.V.I.S.",msg); self.busy=False; self.send_btn.configure(state="normal",text="TRANSMIT ➤"); self.speak(msg)
         except queue.Empty:pass
         self.after(100,self.poll)
+    def start_gemini_validation(self):
+        """Validate the configured Gemini key asynchronously so the GUI never freezes."""
+        key = os.getenv("GEMINI_API_KEY", "").strip()
+        if not key:
+            self.events.put(("gemini_validation", "NOT_CONFIGURED"))
+            return
+        self.gemini_status.configure(text="● GEMINI: CHECKING…", text_color="#FFCA71")
+        def validate():
+            try:
+                from google import genai
+                client = genai.Client(api_key=key)
+                # Listing a model sends an authenticated request without generating content.
+                next(iter(client.models.list()), None)
+                self.events.put(("gemini_validation", "VALID"))
+            except Exception as exc:
+                message = str(exc).lower()
+                invalid_markers = ("api key not valid", "invalid api key", "unauthenticated", "permission_denied", "permission denied", " 400 ", " 401 ", " 403 ")
+                self.events.put(("gemini_validation", "INVALID" if any(marker in message for marker in invalid_markers) else "ERROR"))
+        threading.Thread(target=validate, name="GeminiKeyValidation", daemon=True).start()
+
     def system_status(self):
         self.telemetry.configure(text=f"Host: {socket.gethostname()}\nOS: {platform.platform()}\nPython: {platform.python_version()}\nArchitecture: {platform.machine()}\nProcessor: {platform.processor() or 'Unknown'}")
         self.core.configure(text="● OPERATIONAL",text_color=GREEN)
         configured=bool(os.getenv("GROQ_API_KEY") or os.getenv("GEMINI_API_KEY"))
         self.ai_status.configure(text="● AI: KEY CONFIGURED" if configured else "● AI: NOT CONFIGURED",text_color=GREEN if configured else MUTED)
+        if not os.getenv("GEMINI_API_KEY", "").strip():
+            self.gemini_status.configure(text="● GEMINI: NOT CONFIGURED",text_color=MUTED)
     def open_url(self,url):
         webbrowser.open(url); self.add("J.A.R.V.I.S.",f"Opening {url}")
     def launch_shortcut(self, name):
