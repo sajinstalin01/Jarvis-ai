@@ -50,7 +50,7 @@ APP_ALIASES = {
     "edge": ("msedge.exe", "msedge"), "microsoft edge": ("msedge.exe", "msedge"),
     "firefox": ("firefox.exe", "firefox"), "brave": ("brave.exe", "brave"),
     "opera": ("opera.exe", "opera"), "vivaldi": ("vivaldi.exe", "vivaldi"),
-    "arc": ("Arc.exe", "arc"), "tor browser": ("firefox.exe", "firefox"),
+    "arc": ("Arc.exe", "arc"),
     # Development tools
     "vscode": ("Code.exe", "code"), "visual studio code": ("Code.exe", "code"),
     "visual studio": ("devenv.exe",), "android studio": ("studio64.exe", "studio"),
