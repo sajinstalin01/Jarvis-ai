@@ -34,27 +34,54 @@ APP_ALIASES = {
     "resource monitor": ("resmon.exe",), "registry editor": ("regedit.exe",),
     "windows security": ("windowsdefender:",), "magnifier": ("magnify.exe",),
     "on screen keyboard": ("osk.exe",), "remote desktop": ("mstsc.exe",), "winver": ("winver.exe",),
+    "character map": ("charmap.exe",), "system configuration": ("msconfig.exe",),
+    "computer management": ("compmgmt.msc",), "performance monitor": ("perfmon.msc",),
+    "disk cleanup": ("cleanmgr.exe",), "directx diagnostic": ("dxdiag.exe",),
+    "windows memory diagnostic": ("mdsched.exe",), "programs and features": ("appwiz.cpl",),
+    "network connections": ("ncpa.cpl",), "windows firewall": ("firewall.cpl",),
+    "sound settings": ("mmsys.cpl",), "mouse settings": ("main.cpl",),
+    "internet properties": ("inetcpl.cpl",), "system properties": ("sysdm.cpl",),
+    "power options": ("powercfg.cpl",), "fonts": ("control.exe",),
+    "local users and groups": ("lusrmgr.msc",), "group policy editor": ("gpedit.msc",),
+    "certificate manager": ("certmgr.msc",), "steps recorder": ("psr.exe",),
+    "windows installer cleanup": ("cleanmgr.exe",),
     # Browsers
     "chrome": ("chrome.exe", "chrome"), "google chrome": ("chrome.exe", "chrome"),
     "edge": ("msedge.exe", "msedge"), "microsoft edge": ("msedge.exe", "msedge"),
     "firefox": ("firefox.exe", "firefox"), "brave": ("brave.exe", "brave"),
     "opera": ("opera.exe", "opera"), "vivaldi": ("vivaldi.exe", "vivaldi"),
+    "arc": ("Arc.exe", "arc"), "tor browser": ("firefox.exe", "firefox"),
     # Development tools
     "vscode": ("Code.exe", "code"), "visual studio code": ("Code.exe", "code"),
     "visual studio": ("devenv.exe",), "android studio": ("studio64.exe", "studio"),
     "pycharm": ("pycharm64.exe", "pycharm"), "intellij idea": ("idea64.exe", "idea"),
     "git bash": ("git-bash.exe", "git-bash"), "github desktop": ("GitHubDesktop.exe", "github"),
+    "cursor": ("Cursor.exe", "cursor"), "windsurf": ("Windsurf.exe", "windsurf"),
+    "sublime text": ("sublime_text.exe", "subl"),
+    "postman": ("Postman.exe", "postman"), "docker desktop": ("Docker Desktop.exe", "docker"),
+    "jupyter notebook": ("jupyter-notebook.exe", "jupyter notebook"),
+    "anaconda navigator": ("anaconda-navigator.exe", "anaconda-navigator"),
+    "mysql workbench": ("MySQLWorkbench.exe", "mysql-workbench"),
+    "dbeaver": ("dbeaver.exe", "dbeaver"), "filezilla": ("filezilla.exe", "filezilla"),
     # Media, chat and gaming
     "vlc": ("vlc.exe", "vlc"), "vlc media player": ("vlc.exe", "vlc"),
     "obs": ("obs64.exe", "obs"), "obs studio": ("obs64.exe", "obs"),
     "discord": ("Discord.exe", "discord"), "telegram": ("Telegram.exe", "telegram"),
     "whatsapp desktop": ("WhatsApp.exe", "WhatsApp"), "spotify": ("Spotify.exe", "spotify"),
+    "zoom": ("Zoom.exe", "zoom"), "microsoft teams": ("ms-teams.exe", "Teams.exe"),
+    "teams": ("ms-teams.exe", "Teams.exe"), "slack": ("slack.exe", "Slack"),
+    "notion": ("Notion.exe", "notion"), "obsidian": ("Obsidian.exe", "obsidian"),
+    "dropbox": ("Dropbox.exe", "dropbox"), "onedrive": ("OneDrive.exe", "OneDrive"),
+    "google drive": ("GoogleDriveFS.exe", "GoogleDrive"),
     "steam": ("steam.exe", "steam"), "epic games": ("EpicGamesLauncher.exe",),
     # Utilities and creative apps
     "7zip": ("7zFM.exe", "7zFM"), "7-zip": ("7zFM.exe", "7zFM"),
     "winrar": ("WinRAR.exe", "WinRAR"), "notepad++": ("notepad++.exe", "notepad++"),
     "photoshop": ("Photoshop.exe",), "premiere pro": ("Adobe Premiere Pro.exe",),
-    "after effects": ("AfterFX.exe",),
+    "after effects": ("AfterFX.exe",), "gimp": ("gimp.exe", "gimp"),
+    "blender": ("blender.exe", "blender"), "audacity": ("audacity.exe", "audacity"),
+    "handbrake": ("HandBrake.exe", "HandBrake"), "davinci resolve": ("Resolve.exe",),
+    "figma": ("Figma.exe", "figma"),
 }
 def launch_app(name):
     key = name.strip().lower()
@@ -204,10 +231,10 @@ class JarvisApp(ctk.CTk):
         apps=ctk.CTkFrame(right,fg_color=PANEL,border_width=1,border_color="#14334B",corner_radius=16)
         apps.grid(row=2,column=0,sticky="ew",pady=(12,0)); apps.grid_columnconfigure((0,1),weight=1)
         ctk.CTkLabel(apps,text="APP SHORTCUTS",text_color=CYAN,font=ctk.CTkFont(size=13,weight="bold")).grid(row=0,column=0,columnspan=2,sticky="w",padx=16,pady=(13,8))
-        for i,name in enumerate(("Notepad","Calculator","File Explorer","Task Manager","Snipping Tool","PowerShell","Chrome","VS Code","Android Studio","VLC","Discord","Telegram","Spotify","WhatsApp")):
+        for i,name in enumerate(("Notepad","Calculator","File Explorer","Task Manager","Snipping Tool","PowerShell","Chrome","VS Code","Android Studio","VLC","Discord","Telegram","Spotify","WhatsApp","Windows Security","Settings","Zoom","Notion")):
             ctk.CTkButton(apps,text=name,height=31,fg_color="#10283B",hover_color="#19425A",
                           command=lambda n=name:self.launch_shortcut(n)).grid(row=1+i//2,column=i%2,sticky="ew",padx=6,pady=3)
-        ctk.CTkLabel(apps,text="More: launch <app name> • Some shortcuts require installation.",text_color="#5F7B90",font=ctk.CTkFont(size=10)).grid(row=8,column=0,columnspan=2,padx=12,pady=(7,12),sticky="w")
+        ctk.CTkLabel(apps,text="More: launch <app name> • Some shortcuts require installation.",text_color="#5F7B90",font=ctk.CTkFont(size=10)).grid(row=10,column=0,columnspan=2,padx=12,pady=(7,12),sticky="w")
         ctk.CTkLabel(main,text="JARVIS // UNIFIED PYTHON EDITION",text_color="#456176",font=ctk.CTkFont(size=10)).grid(row=2,column=0,sticky="ew",pady=(10,0))
 
     def draw_reactor(self):
@@ -277,7 +304,7 @@ class JarvisApp(ctk.CTk):
     def command(self,text):
         p=text.strip().lower()
         if p in ("help","commands","what can you do"):
-            return ("Commands:\n• help, time, date, system info\n• calculate <math expression>\n• search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia\n• launch <app name> — Windows tools, browsers, developer apps, media apps and utilities\n• examples: launch snipping tool, launch powershell, launch android studio, launch photoshop, launch vlc\n• open whatsapp; whatsapp search <contact>\n• whatsapp message <contact> | <message> (draft only)\n• ask a question for Groq/Gemini AI\n\nConfigure GROQ_API_KEY or GEMINI_API_KEY in .env for AI chat.")
+            return ("Commands:\n• help, time, date, system info\n• calculate <math expression>\n• search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia\n• launch <app name> — Windows tools, browsers, developer apps, media apps and utilities\n• Windows tools: launch disk cleanup, launch computer management, launch network connections, launch system properties\n• Apps: launch zoom, launch teams, launch slack, launch notion, launch obsidian, launch cursor, launch docker desktop, launch blender, launch gimp, launch figma, launch postman, launch filezilla\n• examples: launch snipping tool, launch powershell, launch android studio, launch photoshop, launch vlc\n• open whatsapp; whatsapp search <contact>\n• whatsapp message <contact> | <message> (draft only)\n• ask a question for Groq/Gemini AI\n\nConfigure GROQ_API_KEY or GEMINI_API_KEY in .env for AI chat.")
         if p in ("hi","hello","hey","hello jarvis","hi jarvis"):return "Hello, Boss. All primary systems are standing by."
         if p=="time" or "what time" in p:return "Local time: "+datetime.datetime.now().strftime("%I:%M:%S %p")
         if p in ("date","today's date","what is today's date") or "what date" in p:return "Today is "+datetime.datetime.now().strftime("%A, %d %B %Y")
