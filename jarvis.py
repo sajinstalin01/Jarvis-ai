@@ -277,7 +277,7 @@ class JarvisApp(ctk.CTk):
     def command(self,text):
         p=text.strip().lower()
         if p in ("help","commands","what can you do"):
-            return ("Commands:\\n• help, time, date, system info\\n• calculate <math expression>\\n• search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia\\n• launch <app name> — Windows tools, browsers, developer apps, media apps and utilities\\n• examples: launch snipping tool, launch powershell, launch android studio, launch photoshop, launch vlc\\n• open whatsapp; whatsapp search <contact>\\n• whatsapp message <contact> | <message> (draft only)\\n• ask a question for Groq/Gemini AI\\n\\nConfigure GROQ_API_KEY or GEMINI_API_KEY in .env for AI chat.")
+            return ("Commands:\n• help, time, date, system info\n• calculate <math expression>\n• search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia\n• launch <app name> — Windows tools, browsers, developer apps, media apps and utilities\n• examples: launch snipping tool, launch powershell, launch android studio, launch photoshop, launch vlc\n• open whatsapp; whatsapp search <contact>\n• whatsapp message <contact> | <message> (draft only)\n• ask a question for Groq/Gemini AI\n\nConfigure GROQ_API_KEY or GEMINI_API_KEY in .env for AI chat.")
         if p in ("hi","hello","hey","hello jarvis","hi jarvis"):return "Hello, Boss. All primary systems are standing by."
         if p=="time" or "what time" in p:return "Local time: "+datetime.datetime.now().strftime("%I:%M:%S %p")
         if p in ("date","today's date","what is today's date") or "what date" in p:return "Today is "+datetime.datetime.now().strftime("%A, %d %B %Y")
