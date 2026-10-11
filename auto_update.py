@@ -1,7 +1,7 @@
 """Safe, configurable GitHub updater for JARVIS.
 
 Settings live in update_config.json. The updater locates Git even when git.exe is
-not on PATH, and never overwrites uncommitted local edits.
+not on PATH. Local edits are temporarily stashed before a fast-forward update and restored afterward; conflicts keep the stash as a backup.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def load_config() -> dict:
         "repository": "sajinstalin01/Jarvis-ai",
         "branch": "main",
         "git_executable": "",
-        "watch_interval_seconds": 300,
+        "watch_interval_seconds": 300,\n        "local_changes_policy": "stash_restore",
     }
     try:
         with CONFIG_PATH.open("r", encoding="utf-8") as handle:
@@ -46,7 +46,7 @@ def load_config() -> dict:
         raise
     defaults["repository"] = str(defaults.get("repository", "")).strip()
     defaults["branch"] = str(defaults.get("branch", "main")).strip() or "main"
-    defaults["git_executable"] = str(defaults.get("git_executable", "")).strip()
+    defaults["git_executable"] = str(defaults.get("git_executable", "")).strip()\n    defaults["local_changes_policy"] = str(defaults.get("local_changes_policy", "stash_restore")).strip().lower()
     try:
         defaults["watch_interval_seconds"] = max(
             60, int(defaults.get("watch_interval_seconds", 300))
@@ -116,16 +116,8 @@ def save_state(commit: str) -> None:
         log(f"Note: could not save update state: {exc}")
 
 
-def check_once(config: dict, git_executable: str) -> bool:
-    if not config.get("enabled", True):
-        log("Automatic updates are disabled in update_config.json.")
-        return True
-
-    if not (ROOT / ".git").exists():
-        log("This folder is not a Git checkout. Clone the repository first.")
-        log("Expected repository: https://github.com/" + config["repository"] + ".git")
-        return False
-
+def _check_clean_tree(config: dict, git_executable: str) -> bool:
+    """Fetch and fast-forward update; caller must ensure the worktree is clean."""
     branch = config["branch"]
     remote_name = "origin"
 
@@ -133,15 +125,6 @@ def check_once(config: dict, git_executable: str) -> bool:
     if rem.returncode:
         log("No origin remote is configured. Set it with: git remote add origin "
             "https://github.com/" + config["repository"] + ".git")
-        return False
-
-    status = git(git_executable, "status", "--porcelain")
-    if status.returncode:
-        log("Unable to inspect Git status: " + status.stderr.strip())
-        return False
-    if status.stdout.strip():
-        log("Local changes detected. Update skipped to protect your files.")
-        log("Commit or stash your changes, then run the updater again.")
         return False
 
     fetch = git(git_executable, "fetch", remote_name, branch)
@@ -189,11 +172,113 @@ def check_once(config: dict, git_executable: str) -> bool:
         log("Fast-forward update failed safely: " + (pull.stderr.strip() or pull.stdout.strip()))
         return False
 
-    new_head = git(git_executable, "rev-parse", "HEAD").stdout.strip()
+    new_head_result = git(git_executable, "rev-parse", "HEAD")
+    if new_head_result.returncode:
+        log("Update finished, but could not read the new commit ID.")
+        return False
+    new_head = new_head_result.stdout.strip()
     log(f"Updated JARVIS successfully: {local[:8]} -> {new_head[:8]}")
     log("Restart JARVIS to load the updated Python code.")
     save_state(new_head)
     return True
+
+
+def _restore_stash(git_executable: str, stash_commit: str) -> bool:
+    """Restore one exact stash; retain it if applying the user's changes conflicts."""
+    applied = git(git_executable, "stash", "apply", "--index", stash_commit)
+    if applied.returncode:
+        log("WARNING: Your local changes could not be restored cleanly.")
+        log("Your changes are preserved in Git's stash; nothing was dropped.")
+        log("Resolve the conflict, then inspect 'git stash list' before removing any stash.")
+        detail = applied.stderr.strip() or applied.stdout.strip()
+        if detail:
+            log(detail)
+        return False
+
+    listing = git(git_executable, "stash", "list", "--format=%H")
+    if listing.returncode == 0:
+        hashes = [line.strip() for line in listing.stdout.splitlines()]
+        try:
+            index = hashes.index(stash_commit)
+        except ValueError:
+            log("Local changes were restored, but the saved stash entry was not found to drop.")
+            return True
+        dropped = git(git_executable, "stash", "drop", f"stash@{{{index}}}")
+        if dropped.returncode:
+            log("Local changes were restored. The backup stash was kept: " +
+                (dropped.stderr.strip() or dropped.stdout.strip()))
+        else:
+            log("Your local changes were restored successfully.")
+    else:
+        log("Local changes were restored, but the backup stash was kept.")
+    return True
+
+
+def check_once(config: dict, git_executable: str) -> bool:
+    if not config.get("enabled", True):
+        log("Automatic updates are disabled in update_config.json.")
+        return True
+
+    if not (ROOT / ".git").exists():
+        log("This folder is not a Git checkout. Clone the repository first.")
+        log("Expected repository: https://github.com/" + config["repository"] + ".git")
+        return False
+
+    status = git(git_executable, "status", "--porcelain")
+    if status.returncode:
+        log("Unable to inspect Git status: " + status.stderr.strip())
+        return False
+
+    dirty = bool(status.stdout.strip())
+    stash_commit = ""
+    if dirty:
+        policy = str(config.get("local_changes_policy", "stash_restore")).strip().lower()
+        if policy in ("skip", "stop", "manual"):
+            log("Local changes detected. Update skipped by local_changes_policy.")
+            log("Set local_changes_policy to 'stash_restore' in update_config.json to save, update, and restore edits.")
+            return False
+        if policy != "stash_restore":
+            log(f"Unknown local_changes_policy '{policy}'. Use 'stash_restore' or 'skip'.")
+            return False
+
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        stash_message = f"JARVIS auto-update backup {stamp}"
+        log("Local changes detected. Saving tracked and untracked edits in a temporary Git stash...")
+        stashed = git(git_executable, "stash", "push", "--include-untracked", "-m", stash_message)
+        if stashed.returncode:
+            log("Could not safely save local changes; update cancelled.")
+            log(stashed.stderr.strip() or stashed.stdout.strip())
+            return False
+        # 'stash push' exits successfully even when nothing was stashed; compare the tree again.
+        clean_check = git(git_executable, "status", "--porcelain")
+        if clean_check.returncode or clean_check.stdout.strip():
+            log("The worktree is still not clean after stashing. Update cancelled.")
+            log("Your local files were not reset or discarded.")
+            return False
+        changed = git(git_executable, "rev-parse", "refs/stash")
+        if changed.returncode == 0:
+            # Only treat refs/stash as our backup if the latest stash has our unique message.
+            latest = git(git_executable, "stash", "list", "-1", "--format=%H%x09%gs")
+            if latest.returncode == 0 and stash_message in latest.stdout:
+                stash_commit = changed.stdout.strip()
+        if not stash_commit:
+            # This was likely a clean worktree with no changes to stash.
+            dirty = False
+            log("No local edits needed to be stashed.")
+
+    try:
+        result = _check_clean_tree(config, git_executable)
+    except RuntimeError as exc:
+        log(str(exc))
+        result = False
+    finally:
+        if stash_commit:
+            restored = _restore_stash(git_executable, stash_commit)
+            if not restored:
+                log("Update check completed with a restore conflict; your stash remains available.")
+                return False
+
+    return result
 
 
 def main() -> int:
