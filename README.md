@@ -35,12 +35,15 @@ python jarvis.py
 Linux/macOS: `bash run_linux_mac.sh`.
 
 ## Commands
-- `help`, `time`, `date`, `system info`\n- `open <app name>` and `launch <app name>`; `open <website>`; `search <query>`\n- `launch chrome search git` or `open chrome search git` (opens Chrome and searches Google)
+- `help`, `time`, `date`, `system info`
+- `open <app name>` and `launch <app name>`; `open <website>`; `search <query>`
 - `calculate 12 * (8 + 2)`
 - `search Python speech recognition`
 - `open YouTube`, `open Google`, `open GitHub`, `open Gmail`, `open Wikipedia`
 - `launch notepad`, `launch calculator`, `launch snipping tool`, `launch powershell`, `launch device manager`
-- `launch chrome`, `launch brave`, `launch vscode`, `launch android studio`, `launch photoshop`, `launch vlc`, `launch discord`, `launch telegram`\n- `launch disk cleanup`, `launch computer management`, `launch network connections`, `launch system properties`\n- `launch zoom`, `launch teams`, `launch slack`, `launch notion`, `launch obsidian`, `launch cursor`, `launch docker desktop`, `launch blender`, `launch gimp`, `launch figma`, `launch postman`, `launch filezilla`
+- `launch chrome`, `launch brave`, `launch vscode`, `launch android studio`, `launch photoshop`, `launch vlc`, `launch discord`, `launch telegram`
+- `launch disk cleanup`, `launch computer management`, `launch network connections`, `launch system properties`
+- `launch zoom`, `launch teams`, `launch slack`, `launch notion`, `launch obsidian`, `launch cursor`, `launch docker desktop`, `launch blender`, `launch gimp`, `launch figma`, `launch postman`, `launch filezilla`
 - `open whatsapp` or `launch whatsapp` (opens WhatsApp Desktop only)
 - `launch chrome search git` or `open chrome search git` (launches Chrome and searches Google)
 
