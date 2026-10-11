@@ -357,10 +357,10 @@ class JarvisApp(ctk.CTk):
             if not remainder:
                 return f"Usage: {verb} <app name or website>"
             # Syntax such as "launch chrome search git" or "open chrome search git".
-            app_name, separator, query = remainder.partition(" search ")
-            if separator:
-                app_name = app_name.strip()
-                query = query.strip()
+            search_pos = remainder.lower().find(" search ")
+            if search_pos >= 0:
+                app_name = remainder[:search_pos].strip()
+                query = remainder[search_pos + len(" search "):].strip()
                 if not query:
                     return "Add search words after 'search'. Example: launch chrome search git"
                 ok, message = launch_app(app_name, search_query=query)
