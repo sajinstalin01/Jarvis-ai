@@ -9,7 +9,7 @@ call .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 if not exist .env copy .env.example .env
-python jarvis.py
+python jarvis_v2.py
 pause
 exit /b 0
 :error
