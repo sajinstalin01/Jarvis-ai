@@ -15,7 +15,7 @@ if %errorlevel%==0 if exist .git (
   python auto_update.py
   echo.
 )
-python jarvis_v2.py
+python jarvis.py
 pause
 exit /b 0
 :error
