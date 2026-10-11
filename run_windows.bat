@@ -9,6 +9,12 @@ call .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 if not exist .env copy .env.example .env
+where git >nul 2>nul
+if %errorlevel%==0 if exist .git (
+  echo Checking GitHub for JARVIS updates...
+  python auto_update.py
+  echo.
+)
 python jarvis_v2.py
 pause
 exit /b 0
