@@ -56,7 +56,7 @@ The updater settings are in `update_config.json`:
 - `repository`: GitHub repository in `owner/name` format.
 - `branch`: branch to update from (normally `main`).
 - `git_executable`: optional full path to `git.exe` if Git is not on PATH.
-- `watch_interval_seconds`: interval for watch mode (minimum 60 seconds).
+- `watch_interval_seconds`: interval for watch mode (minimum 60 seconds).\n- `local_changes_policy`: `stash_restore` (default) temporarily stashes tracked and untracked edits, updates with fast-forward only, then restores them; `skip` stops if local edits exist.
 
 The updater now searches PATH and common Git for Windows installation folders for `git.exe`. If Git is installed in a custom location, set `git_executable` in `update_config.json`, for example:
 ```json
@@ -68,7 +68,7 @@ The updater now searches PATH and common Git for Windows installation folders fo
   "watch_interval_seconds": 300
 }
 ```
-Keep the JSON valid and use doubled backslashes in Windows paths. If Git is not installed, install Git for Windows first. Run `python auto_update.py` for one check or `python auto_update.py --watch` to keep checking. The updater only fast-forward pulls when the working tree is clean; it does not discard local edits. Restart JARVIS after an update to load changed Python code. The Windows launcher invokes the updater even if `git` is not on PATH, so it can show a helpful setup message.
+Keep the JSON valid and use doubled backslashes in Windows paths. If Git is not installed, install Git for Windows first. Run `python auto_update.py` for one check or `python auto_update.py --watch` to keep checking. The updater only fast-forward pulls. When local edits exist and `local_changes_policy` is `stash_restore`, it first saves tracked and untracked edits to a named Git stash, updates, and then restores those edits. If restoration conflicts, it keeps the stash as a backup and tells you to resolve the conflict; it never intentionally discards those edits. Set `local_changes_policy` to `skip` if you prefer manual handling. Restart JARVIS after an update to load changed Python code. The Windows launcher invokes the updater even if `git` is not on PATH, so it can show a helpful setup message.
 
 ## Project files
 - `jarvis.py` — unified application, voice, AI, app launcher and WhatsApp Desktop launcher.
