@@ -25,8 +25,8 @@ Manual setup:
 ```powershell
 git clone https://github.com/sajinstalin01/Jarvis-ai.git
 cd Jarvis-ai
-py -m venv .venv
-.venv\Scripts\activate
+py -m venv .venv (cmd)
+.venv\Scripts\activate.bat (cmd)
 pip install -r requirements.txt
 Copy-Item .env.example .env
 python auto_update.py
