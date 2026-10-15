@@ -31,7 +31,8 @@ def load_config() -> dict:
         "repository": "sajinstalin01/Jarvis-ai",
         "branch": "main",
         "git_executable": "",
-        "watch_interval_seconds": 300,\n        "local_changes_policy": "stash_restore",
+        "watch_interval_seconds": 300,
+        "local_changes_policy": "stash_restore",
     }
     try:
         with CONFIG_PATH.open("r", encoding="utf-8") as handle:
@@ -46,7 +47,8 @@ def load_config() -> dict:
         raise
     defaults["repository"] = str(defaults.get("repository", "")).strip()
     defaults["branch"] = str(defaults.get("branch", "main")).strip() or "main"
-    defaults["git_executable"] = str(defaults.get("git_executable", "")).strip()\n    defaults["local_changes_policy"] = str(defaults.get("local_changes_policy", "stash_restore")).strip().lower()
+    defaults["git_executable"] = str(defaults.get("git_executable", "")).strip()
+    defaults["local_changes_policy"] = str(defaults.get("local_changes_policy", "stash_restore")).strip().lower()
     try:
         defaults["watch_interval_seconds"] = max(
             60, int(defaults.get("watch_interval_seconds", 300))
