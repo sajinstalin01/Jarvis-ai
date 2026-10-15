@@ -6,3 +6,4 @@ google-genai>=1.0.0
 SpeechRecognition>=3.10.4
 pyttsx3>=2.90
 # On Windows, install PyAudio using a compatible wheel if pip cannot build it.
+psutil>=5.9.8
