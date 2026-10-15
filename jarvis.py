@@ -362,13 +362,17 @@ class JarvisApp(ctk.CTk):
     def command(self,text):
         p=text.strip().lower()
         if p in ("help","commands","what can you do"):
-            return ("Commands:\n• help, time, date, system info
+            return """Commands:
+• help, time, date, system info
+• calculate <math expression>; search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia
+• launch <app name>; launch chrome search git
 • remember <text>, memories [search], forget memory <id>, history [search]
 • remind me in 10 minutes to <task>; remind me daily/weekly to <task>; reminders; delete reminder <id>
 • workflow save <name>: launch chrome; open github; workflow list/run/delete <name>
 • dev diagnostics, dev test, dev git status
-• wake word: click WAKE: OFF and say 'Hey JARVIS' (SpeechRecognition + PyAudio required)
-• help, time, date, system info\n• calculate <math expression>\n• search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia\n• launch <app name> — Windows tools, browsers, developer apps, media apps and utilities\n• Windows tools: launch disk cleanup, launch computer management, launch network connections, launch system properties\n• Apps: launch zoom, launch teams, launch slack, launch notion, launch obsidian, launch cursor, launch docker desktop, launch blender, launch gimp, launch figma, launch postman, launch filezilla\n• examples: launch snipping tool, launch powershell, launch android studio, launch photoshop, launch vlc\n• open whatsapp / launch whatsapp — launches the installed WhatsApp Desktop app only\n• launch chrome search git — launches Chrome and searches Google for git\n• open <app name> / launch <app name>; open <website>; search <query>\n• ask a question for Groq/Gemini AI\n\nConfigure GROQ_API_KEY or GEMINI_API_KEY in .env for AI chat.")
+• click WAKE: OFF to enable optional wake-word mode; say 'Hey JARVIS'
+• ask a question for Groq/Gemini AI
+API keys stay in your local .env. Wake-word recognition uses the configured speech recognition service."""
         if p.startswith("remember "):
             try:
                 memory_id=self.store.remember(text[9:])
