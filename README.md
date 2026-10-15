@@ -78,3 +78,38 @@ Keep the JSON valid and use doubled backslashes in Windows paths. If Git is not 
 - `.github/workflows/python-check.yml` — CI syntax check.
 
 **Notes:** Some third-party applications need their own installation and may not be discoverable if installed in a custom folder. Add an executable path to `APP_ALIASES` in `jarvis.py` if needed. JARVIS never executes arbitrary shell commands. WhatsApp Web/contact-search/message helper commands are not supported; only the installed desktop app is launched.
+
+## New assistant modules
+
+- **Navigation windows:** PC Monitor, Memory & History, Reminders, Workflows and Developer Mode are available from the sidebar.
+- **AI health monitor:** checks configured Groq and Gemini credentials at startup in background threads. Key values are never printed. A network failure is reported separately from a clearly recognized invalid-key response.
+- **Optional wake-word listening:** use the `WAKE: OFF` button and enable it to listen for “Hey JARVIS”. It requires SpeechRecognition, microphone access and compatible PyAudio. The current recognizer sends captured speech to Google's speech-recognition service; disable wake mode when not needed.
+- **Live PC metrics:** CPU, RAM, disk usage and cumulative network transfer via `psutil`. Battery and temperature sensors appear only when the OS/hardware exposes them.
+- **Persistent local memory and history:** messages, saved memories, reminders and workflows use SQLite in `jarvis_data/jarvis.sqlite3`. This directory is ignored by Git and data stays on this computer unless you manually share it. Use the Memory & History window to search, save memories and clear chat history; saved memories are kept when history is cleared.
+- **Reminders:** `remind me in 10 minutes to stretch`, `remind me daily to review tasks`, `remind me weekly to back up`, `reminders`, and `delete reminder 1`. Supported repeating schedules are daily and weekly. JARVIS must be running to show a reminder notification.
+- **Safe workflows:** `workflow save morning: launch chrome; open gmail`, `workflow list`, `workflow run morning`, and `workflow delete morning`. Only allow-listed launch/open/search command types can be saved, arbitrary URLs and shell commands are rejected, and running a workflow requires confirmation.
+- **Developer mode:** `dev diagnostics` and `dev git status` report project syntax, Git status and latest commit. `dev test` runs the local unit tests. It does not execute arbitrary commands.
+- **Tests:** run `python -m unittest discover -s tests -v`. GitHub Actions compiles Python files and runs the service tests.
+
+### New commands
+
+```text
+remember I prefer dark mode
+memories
+memories dark
+forget memory 1
+history Gemini
+remind me in 10 minutes to stretch
+remind me daily to review tasks
+reminders
+delete reminder 1
+workflow save morning: launch chrome; open gmail
+workflow list
+workflow run morning
+workflow delete morning
+dev diagnostics
+dev git status
+dev test
+```
+
+**Privacy and limitations:** Local conversation history and saved memories are stored unencrypted in the local SQLite database. Do not save passwords, API keys or other secrets as memories. The wake-word feature uses cloud speech recognition rather than an offline wake-word engine. Metrics such as temperature are not available on every computer.
