@@ -6,3 +6,5 @@ __pycache__/
 *.log
 .jarvis_update_state.json
 .DS_Store
+# Local-only assistant data (conversation history, memories, reminders)
+jarvis_data/
