@@ -426,12 +426,12 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
         if p in ("dev diagnostics","dev git status"):
             return developer_diagnostics()
         if p=="dev test":
-            import py_compile
+            import subprocess, sys
             try:
-                py_compile.compile(str(ROOT/"jarvis.py"),doraise=True)
-                py_compile.compile(str(ROOT/"jarvis_services.py"),doraise=True)
-                return "Python syntax check passed for jarvis.py and jarvis_services.py."
-            except py_compile.PyCompileError as exc:return f"Syntax check failed: {exc}"
+                result=subprocess.run([sys.executable,"-m","unittest","discover","-s","tests","-v"],cwd=ROOT,capture_output=True,text=True,timeout=60)
+                output=(result.stdout+"\n"+result.stderr).strip()
+                return ("Tests passed.\n" if result.returncode==0 else "Tests failed.\n")+output[-5000:]
+            except Exception as exc:return f"Could not run tests: {exc}"
         if p in ("hi","hello","hey","hello jarvis","hi jarvis"):return "Hello, Boss. All primary systems are standing by."
         if p=="time" or "what time" in p:return "Local time: "+datetime.datetime.now().strftime("%I:%M:%S %p")
         if p in ("date","today's date","what is today's date") or "what date" in p:return "Today is "+datetime.datetime.now().strftime("%A, %d %B %Y")
@@ -660,8 +660,10 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
             output.configure(state="normal"); output.delete("1.0","end"); output.insert("end",text); output.configure(state="disabled")
         def entry(placeholder):
             field=ctk.CTkEntry(controls,placeholder_text=placeholder); field.grid(row=0,column=0,sticky="ew",padx=(0,6),pady=4); return field
+        button_row=[1]
         def button(label,fn):
-            ctk.CTkButton(controls,text=label,command=fn,fg_color="#12435A").grid(row=1,column=0,sticky="ew",pady=4)
+            ctk.CTkButton(controls,text=label,command=fn,fg_color="#12435A").grid(row=button_row[0],column=0,sticky="ew",pady=4)
+            button_row[0]+=1
         if kind=="monitor":
             def refresh():
                 data=system_metrics()
