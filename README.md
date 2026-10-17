@@ -3,9 +3,9 @@
 **One main application: `jarvis.py`.** The original V1 and V2 features are integrated into this file. The separate `jarvis_v2.py` compatibility file has been removed.
 
 ## Features
-- Sci-fi CustomTkinter dashboard, animated reactor, loading splash, clock/date, system telemetry, quick links and clear-chat button.
-- Sound toggle and optional spoken responses.
-- Groq AI with Gemini fallback using keys from local `.env`.
+- Redesigned professional dark HUD: deep navy panels, restrained teal/blue accents, refined typography, consistent borders, a cleaner dashboard, animated reactor, loading splash, live clock/date, system telemetry, quick links and clear-chat button.
+- Sound toggle, optional spoken responses, push-to-talk and **continuous turn-by-turn Voice Chat** with microphone listening, AI responses and spoken replies. Voice Chat listens again after the response finishes; click the toggle to stop.
+- Groq AI with Gemini fallback using keys from local `.env`; requests include recent conversation turns and saved user memories to support natural follow-ups.
 - Local commands: time/date/system info, safe arithmetic calculator, browser search and website shortcuts.
 - **Expanded Windows shortcuts:** Notepad, Calculator, Paint, File Explorer, Task Manager, Settings, Snipping Tool, PowerShell, Terminal, Command Prompt, Control Panel, Device Manager, Disk Management, Services, Event Viewer, Task Scheduler, System Information, Resource Monitor, Registry Editor, Windows Security, Magnifier, On-Screen Keyboard, Remote Desktop, Character Map, System Configuration, Computer Management, Performance Monitor, Disk Cleanup, DirectX Diagnostic, Windows Memory Diagnostic, Programs and Features, Network Connections, Windows Firewall, Sound Settings, Mouse Settings, Internet Properties, System Properties, Power Options, Local Users and Groups, Group Policy Editor, Certificate Manager and Steps Recorder.
 - **Expanded third-party shortcuts:** Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, VS Code, Visual Studio, Android Studio, PyCharm, IntelliJ IDEA, Git Bash, GitHub Desktop, Cursor, Windsurf, Sublime Text, Postman, Docker Desktop, Jupyter Notebook, Anaconda Navigator, MySQL Workbench, DBeaver, FileZilla, VLC, OBS Studio, Discord, Telegram, WhatsApp Desktop, Spotify, Zoom, Microsoft Teams, Slack, Notion, Obsidian, Dropbox, OneDrive, Google Drive, Steam, Epic Games Launcher, 7-Zip, WinRAR, Notepad++, Photoshop, Premiere Pro, After Effects, GIMP, Blender, Audacity, HandBrake, DaVinci Resolve and Figma.
@@ -51,6 +51,14 @@ Linux/macOS: `bash run_linux_mac.sh`.
 Voice input requires SpeechRecognition, a microphone and compatible PyAudio; recognition uses Google's service and requires internet. Set `JARVIS_SPEAK_RESPONSES=true` for optional spoken replies. Groq is tried first, then Gemini. Keep API keys in local `.env`; never commit real keys.
 
 **AI provider recovery:** JARVIS now defaults to Groq's `openai/gpt-oss-120b`. If your local `.env` still sets the retired `llama-3.3-70b-versatile` model, JARVIS automatically retries with a supported replacement after a model-not-found response. Gemini requests keep a live client reference for the full request and close it only after the response is received. You can override `GROQ_MODEL` and `GEMINI_MODEL` in `.env`; restart JARVIS after changes.
+
+## Conversation memory and real-time voice chat
+
+- JARVIS sends up to 16 recent user/assistant turns from local SQLite history to the AI provider, so follow-up questions can refer to earlier messages.
+- Up to 8 recent saved memories are included as user-provided notes. Save them explicitly with `remember <text>`; review with `memories`, search with `memories <term>`, and remove with `forget memory <id>`.
+- Use **VOICE CHAT: OFF** in the chat toolbar to enable continuous turn-based voice conversation. JARVIS listens through the microphone, transcribes speech using Google's cloud speech-recognition service, asks Groq/Gemini, speaks the answer with the installed system TTS, then listens for the next turn. Click **VOICE CHAT: ON** to stop.
+- This is turn-based voice interaction, not a full-duplex streaming audio call. It requires internet, microphone permission, SpeechRecognition, compatible PyAudio, and pyttsx3/system TTS. Voice recognition sends audio to Google's recognition service; don't enable it for private conversations you don't want processed by that service.
+- Conversation history and memories remain in local `jarvis_data/jarvis.sqlite3` and are not uploaded to GitHub. Do not store passwords or API keys in memory.
 
 ## Auto-update configuration
 The updater settings are in `update_config.json`:
