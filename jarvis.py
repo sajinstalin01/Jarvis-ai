@@ -1,6 +1,7 @@
 """Unified J.A.R.V.I.S. desktop assistant: original dashboard + V2 voice/app/WhatsApp features."""
 from __future__ import annotations
 import ast, datetime, operator, os, platform, queue, shutil, socket, subprocess, threading, time, urllib.parse, webbrowser
+from functools import lru_cache
 from pathlib import Path
 from tkinter import messagebox
 from jarvis_services import JarvisStore, system_metrics, developer_diagnostics, parse_reminder_command
@@ -27,7 +28,40 @@ ACCENT, BORDER, PANEL_ALT, TEXT = "#86A8FF", "#20384D", "#0A1725", "#E8F0F7"
 GOLD = "#E6BE78"
 
 # App aliases are deliberately allow-listed. Values are candidate executable names or paths.
+@lru_cache(maxsize=1)
+def _start_menu_shortcuts():
+    """Index installed Windows Start Menu shortcuts once; exact-name matching only."""
+    if platform.system() != "Windows":
+        return {}
+    roots = [
+        Path(os.getenv("APPDATA", "")) / "Microsoft/Windows/Start Menu/Programs",
+        Path(os.getenv("PROGRAMDATA", r"C:\\ProgramData")) / "Microsoft/Windows/Start Menu/Programs",
+    ]
+    index = {}
+    for root in roots:
+        try:
+            for shortcut in root.rglob("*.lnk"):
+                normalized = "".join(ch for ch in shortcut.stem.casefold() if ch.isalnum())
+                if normalized and normalized not in index:
+                    index[normalized] = shortcut
+        except (OSError, PermissionError):
+            continue
+    return index
+
+
+def find_start_menu_shortcut(name):
+    normalized = "".join(ch for ch in name.casefold() if ch.isalnum())
+    return _start_menu_shortcuts().get(normalized)
+
+
 APP_ALIASES = {
+    # Common short names
+    "calc": ("calc.exe",), "files": ("explorer.exe",), "tm": ("taskmgr.exe",),
+    "taskmgr": ("taskmgr.exe",), "ps": ("powershell.exe",), "wt": ("wt.exe", "WindowsTerminal.exe"),
+    "code": ("Code.exe", "code"), "vs code": ("Code.exe", "code"),
+    "studio": ("studio64.exe", "studio"), "androidstudio": ("studio64.exe", "studio"),
+    "ff": ("firefox.exe", "firefox"), "wa": ("WhatsApp.exe", "WhatsApp"),
+    "tg": ("Telegram.exe", "telegram"), "sp": ("Spotify.exe", "spotify"),
     # Windows built-ins
     "notepad": ("notepad.exe",), "calculator": ("calc.exe",), "paint": ("mspaint.exe",),
     "file explorer": ("explorer.exe",), "explorer": ("explorer.exe",),
@@ -96,8 +130,16 @@ def launch_app(name, search_query=None):
     if key == "whatsapp":
         key = "whatsapp desktop"
     candidates = APP_ALIASES.get(key)
+    if not candidates and platform.system() == "Windows":
+        shortcut = find_start_menu_shortcut(name.strip())
+        if shortcut:
+            try:
+                os.startfile(str(shortcut))
+                return True, f"Launching installed app '{shortcut.stem}'."
+            except OSError as exc:
+                return False, f"Couldn't launch '{shortcut.stem}': {exc}"
     if not candidates:
-        return False, f"'{name}' is not in JARVIS's app shortcuts. Type 'help' to see supported names."
+        return False, f"'{name}' was not found in JARVIS shortcuts or the Windows Start Menu. Install it or add an alias."
 
     search_url = (
         "https://www.google.com/search?q=" + urllib.parse.quote(search_query)
@@ -242,6 +284,7 @@ class JarvisApp(ctk.CTk):
             ("◈  Dashboard",lambda:self.add("SYSTEM","Dashboard online.")),
             ("✧  AI Assistant",lambda:self.entry.focus_set()),
             ("▤  PC Monitor",lambda:self.open_feature_window("monitor")),
+            ("⌁  PC Control",self.open_pc_control_window),
             ("◷  Memory & History",lambda:self.open_feature_window("memory")),
             ("◉  Reminders",lambda:self.open_feature_window("reminders")),
             ("⌘  Workflows",lambda:self.open_feature_window("workflows")),
@@ -917,6 +960,32 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
         self.core.configure(text="● OPERATIONAL",text_color=GREEN)
         configured=bool(os.getenv("GROQ_API_KEY") or os.getenv("GEMINI_API_KEY"))
         self.ai_status.configure(text="● AI: KEY CONFIGURED" if configured else "● AI: NOT CONFIGURED",text_color=GREEN if configured else MUTED)
+    def open_pc_control_window(self):
+        window=ctk.CTkToplevel(self)
+        window.title("J.A.R.V.I.S. // PC Control Center")
+        window.geometry("560x440")
+        window.configure(fg_color=BG)
+        window.grid_columnconfigure((0,1),weight=1)
+        ctk.CTkLabel(window,text="PC CONTROL CENTER",font=ctk.CTkFont(size=22,weight="bold"),text_color=CYAN).grid(row=0,column=0,columnspan=2,sticky="w",padx=22,pady=(22,4))
+        ctk.CTkLabel(window,text="Local actions run on this computer. Power actions always ask for confirmation.",text_color=MUTED,wraplength=500,justify="left").grid(row=1,column=0,columnspan=2,sticky="w",padx=22,pady=(0,18))
+        actions=[
+            ("System status","pc status"),("Lock screen","pc lock"),
+            ("Toggle mute","pc mute"),("Take screenshot","pc screenshot"),
+            ("Shut down…","pc shutdown"),("Restart…","pc restart"),
+        ]
+        for i,(label,command) in enumerate(actions):
+            ctk.CTkButton(window,text=label,height=48,fg_color="#13283A",hover_color="#23455C",
+                          command=lambda cmd=command:self.run_pc_action(cmd)).grid(
+                row=2+i//2,column=i%2,sticky="ew",padx=10,pady=8)
+        ctk.CTkLabel(window,text="Screenshots are saved in jarvis_data/screenshots.\nRemote API does not expose power controls or file access.",text_color=MUTED,justify="left").grid(row=5,column=0,columnspan=2,sticky="w",padx=22,pady=14)
+
+    def run_pc_action(self, command):
+        if command in ("pc status","pc lock","pc mute","pc screenshot"):
+            result=self.command(command)
+            self.add("PC CONTROL",result)
+        else:
+            self.add("PC CONTROL",self.command(command))
+
     def remote_status(self):
         data=system_metrics()
         return {key:data.get(key) for key in ("host","platform","cpu_percent","memory_percent","memory_used_gb","disk_percent","battery_percent") if key in data}
