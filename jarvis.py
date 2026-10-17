@@ -20,7 +20,9 @@ def load_env():
                 key, value = line.split("=", 1)
                 os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 load_env()
-CYAN, BG, PANEL, GREEN, MUTED = "#00D9FF", "#07111F", "#0B1B2C", "#4DFFB5", "#8196AD"
+CYAN, BG, PANEL, GREEN, MUTED = "#67E8D5", "#07111F", "#0D1B2A", "#8BE3B0", "#91A5BA"
+ACCENT, BORDER, PANEL_ALT, TEXT = "#86A8FF", "#20384D", "#0A1725", "#E8F0F7"
+GOLD = "#E6BE78"
 
 # App aliases are deliberately allow-listed. Values are candidate executable names or paths.
 APP_ALIASES = {
@@ -208,11 +210,12 @@ def safe_calculate(expr):
 class JarvisApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        ctk.set_appearance_mode("dark"); ctk.set_default_color_theme("blue")
+        ctk.set_appearance_mode("dark"); ctk.set_default_color_theme("dark-blue")
         self.title("J.A.R.V.I.S. // Unified Stark Desktop"); self.geometry("1440x900"); self.minsize(1080,720); self.configure(fg_color=BG)
         self.events=queue.Queue(); self.busy=False; self.sound=True; self.sr=None; self.tts=None
+        self.voice_chat_active=False; self.voice_chat_stop=threading.Event(); self.voice_chat_ready=threading.Event(); self.voice_chat_ready.set()
         self.store=JarvisStore()
-        self.wake_enabled=False; self.wake_stop=threading.Event(); self.wake_thread=None
+        self.wake_enabled=False; self.wake_stop=threading.Event(); self.wake_thread=None; self.voice_chat_thread=None
         try:
             import speech_recognition as sr
             self.sr=sr
@@ -231,7 +234,7 @@ class JarvisApp(ctk.CTk):
         side=ctk.CTkFrame(self,width=220,corner_radius=0,fg_color="#081522",border_width=1,border_color="#12334A")
         side.grid(row=0,column=0,sticky="nsew"); side.grid_propagate(False)
         ctk.CTkLabel(side,text="J.A.R.V.I.S.",font=ctk.CTkFont(size=26,weight="bold"),text_color=CYAN).pack(anchor="w",padx=18,pady=(26,2))
-        ctk.CTkLabel(side,text="PERSONAL AI INTERFACE",font=ctk.CTkFont(size=10,weight="bold"),text_color=MUTED).pack(anchor="w",padx=20,pady=(0,24))
+        ctk.CTkLabel(side,text="PERSONAL INTELLIGENCE SYSTEM",font=ctk.CTkFont(size=10,weight="bold"),text_color=MUTED).pack(anchor="w",padx=20,pady=(0,24))
         for label,fn in [
             ("◈  Dashboard",lambda:self.add("SYSTEM","Dashboard online.")),
             ("✧  AI Assistant",lambda:self.entry.focus_set()),
@@ -242,57 +245,58 @@ class JarvisApp(ctk.CTk):
             ("</>  Developer Mode",lambda:self.open_feature_window("developer")),
             ("◉  WhatsApp",lambda:self.launch_shortcut("WhatsApp")),
             ("⚙  Settings",self.show_settings)]:
-            ctk.CTkButton(side,text=label,command=fn,anchor="w",height=42,corner_radius=10,fg_color="transparent",hover_color="#12314A",text_color="#D7E8F4").pack(fill="x",padx=12,pady=4)
-        ctk.CTkFrame(side,height=1,fg_color="#17364B").pack(fill="x",padx=14,pady=(20,14))
+            ctk.CTkButton(side,text=label,command=fn,anchor="w",height=42,corner_radius=10,fg_color="transparent",hover_color="#183248",text_color=TEXT).pack(fill="x",padx=12,pady=4)
+        ctk.CTkFrame(side,height=1,fg_color=BORDER).pack(fill="x",padx=14,pady=(20,14))
         ctk.CTkLabel(side,text="CORE STATUS",font=ctk.CTkFont(size=11,weight="bold"),text_color=MUTED).pack(anchor="w",padx=18)
-        self.core=ctk.CTkLabel(side,text="● INITIALIZING",text_color="#FFCA71"); self.core.pack(anchor="w",padx=18,pady=(8,4))
+        self.core=ctk.CTkLabel(side,text="● INITIALIZING",text_color=GOLD); self.core.pack(anchor="w",padx=18,pady=(8,4))
         self.ai_status=ctk.CTkLabel(side,text="● AI: CHECKING",text_color=MUTED); self.ai_status.pack(anchor="w",padx=18,pady=4)
         self.groq_status=ctk.CTkLabel(side,text="● GROQ: WAITING",text_color=MUTED); self.groq_status.pack(anchor="w",padx=18,pady=4)
         self.gemini_status=ctk.CTkLabel(side,text="● GEMINI: WAITING",text_color=MUTED); self.gemini_status.pack(anchor="w",padx=18,pady=4)
-        ctk.CTkFrame(side,height=1,fg_color="#17364B").pack(fill="x",padx=14,pady=(14,10))
+        ctk.CTkFrame(side,height=1,fg_color=BORDER).pack(fill="x",padx=14,pady=(14,10))
         ctk.CTkLabel(side,text="QUICK STATUS",font=ctk.CTkFont(size=11,weight="bold"),text_color=MUTED).pack(anchor="w",padx=18,pady=(0,5))
-        ctk.CTkLabel(side,text="AI providers\nGroq → Gemini fallback\nKeys stay in local .env",justify="left",text_color="#55748A",font=ctk.CTkFont(size=10)).pack(anchor="w",padx=18)
-        ctk.CTkLabel(side,text="ALLOW-LISTED APP CONTROL\nWhatsApp sending stays manual.",justify="left",text_color="#55748A",font=ctk.CTkFont(size=10)).pack(side="bottom",anchor="w",padx=18,pady=20)
+        ctk.CTkLabel(side,text="AI providers\nGroq → Gemini fallback\nKeys stay in local .env",justify="left",text_color="#71879C",font=ctk.CTkFont(size=10)).pack(anchor="w",padx=18)
+        ctk.CTkLabel(side,text="ALLOW-LISTED APP CONTROL\nWhatsApp sending stays manual.",justify="left",text_color="#71879C",font=ctk.CTkFont(size=10)).pack(side="bottom",anchor="w",padx=18,pady=20)
         main=ctk.CTkFrame(self,fg_color=BG,corner_radius=0); main.grid(row=0,column=1,sticky="nsew",padx=18,pady=16); main.grid_columnconfigure(0,weight=1); main.grid_rowconfigure(1,weight=1)
         head=ctk.CTkFrame(main,fg_color="transparent"); head.grid(row=0,column=0,sticky="ew",pady=(0,12))
-        ctk.CTkLabel(head,text="STARK INDUSTRIES / PERSONAL INTELLIGENCE",text_color=MUTED,font=ctk.CTkFont(size=11,weight="bold")).pack(side="left")
+        ctk.CTkLabel(head,text="J.A.R.V.I.S.  /  PERSONAL INTELLIGENCE SYSTEM",text_color=MUTED,font=ctk.CTkFont(size=11,weight="bold")).pack(side="left")
         self.date=ctk.CTkLabel(head,text="",text_color=MUTED,font=ctk.CTkFont(size=11)); self.date.pack(side="right",padx=10)
         self.clock=ctk.CTkLabel(head,text="",text_color=CYAN,font=ctk.CTkFont(size=17,weight="bold")); self.clock.pack(side="right")
         body=ctk.CTkFrame(main,fg_color="transparent"); body.grid(row=1,column=0,sticky="nsew"); body.grid_columnconfigure(0,weight=2); body.grid_columnconfigure(1,weight=1); body.grid_rowconfigure(1,weight=1)
-        hero=ctk.CTkFrame(body,fg_color=PANEL,border_width=1,border_color="#15415A",corner_radius=18); hero.grid(row=0,column=0,columnspan=2,sticky="ew",pady=(0,14)); hero.grid_columnconfigure(1,weight=1)
+        hero=ctk.CTkFrame(body,fg_color=PANEL,border_width=1,border_color=BORDER,corner_radius=18); hero.grid(row=0,column=0,columnspan=2,sticky="ew",pady=(0,14)); hero.grid_columnconfigure(1,weight=1)
         self.reactor=ctk.CTkCanvas(hero,width=140,height=140,bg=PANEL,highlightthickness=0); self.reactor.grid(row=0,column=0,padx=(18,6),pady=12); self.draw_reactor()
         ht=ctk.CTkFrame(hero,fg_color="transparent"); ht.grid(row=0,column=1,sticky="w",padx=18,pady=20)
-        ctk.CTkLabel(ht,text="GOOD TO SEE YOU, BOSS.",text_color="#EEF8FF",font=ctk.CTkFont(size=25,weight="bold")).pack(anchor="w")
-        ctk.CTkLabel(ht,text="Unified AI, voice and desktop-control console.",text_color=MUTED,font=ctk.CTkFont(size=13)).pack(anchor="w",pady=(5,12))
-        ctk.CTkLabel(ht,text="● SYSTEM NOMINAL",text_color=GREEN,fg_color="#10352F",corner_radius=8,font=ctk.CTkFont(size=11,weight="bold"),padx=12,pady=6).pack(anchor="w")
-        chat=ctk.CTkFrame(body,fg_color=PANEL,border_width=1,border_color="#14334B",corner_radius=16); chat.grid(row=1,column=0,sticky="nsew",padx=(0,12)); chat.grid_columnconfigure(0,weight=1); chat.grid_rowconfigure(1,weight=1)
+        ctk.CTkLabel(ht,text="YOUR PERSONAL INTELLIGENCE, READY.",text_color="#EEF8FF",font=ctk.CTkFont(size=25,weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(ht,text="Context-aware AI • Desktop telemetry • Voice interface",text_color=MUTED,font=ctk.CTkFont(size=13)).pack(anchor="w",pady=(5,12))
+        ctk.CTkLabel(ht,text="● SYSTEM ONLINE  /  MEMORY ACTIVE",text_color=GREEN,fg_color="#12352F",corner_radius=8,font=ctk.CTkFont(size=11,weight="bold"),padx=12,pady=6).pack(anchor="w")
+        chat=ctk.CTkFrame(body,fg_color=PANEL,border_width=1,border_color=BORDER,corner_radius=16); chat.grid(row=1,column=0,sticky="nsew",padx=(0,12)); chat.grid_columnconfigure(0,weight=1); chat.grid_rowconfigure(1,weight=1)
         ch=ctk.CTkFrame(chat,fg_color="transparent"); ch.grid(row=0,column=0,sticky="ew",padx=16,pady=(13,5))
         ctk.CTkLabel(ch,text="✧ JARVIS CONSOLE",text_color=CYAN,font=ctk.CTkFont(size=14,weight="bold")).pack(side="left")
         ctk.CTkButton(ch,text="CLEAR",width=60,height=26,command=self.clear_chat,fg_color="#10263A").pack(side="right")
-        self.chat=ctk.CTkTextbox(chat,fg_color="#06101B",text_color="#DDEBF5",border_width=1,border_color="#133047",corner_radius=10,wrap="word",font=ctk.CTkFont(size=13)); self.chat.grid(row=1,column=0,sticky="nsew",padx=14,pady=8); self.chat.configure(state="disabled")
+        self.chat=ctk.CTkTextbox(chat,fg_color="#07131F",text_color=TEXT,border_width=1,border_color=BORDER,corner_radius=10,wrap="word",font=ctk.CTkFont(size=13)); self.chat.grid(row=1,column=0,sticky="nsew",padx=14,pady=8); self.chat.configure(state="disabled")
         bar=ctk.CTkFrame(chat,fg_color="transparent"); bar.grid(row=2,column=0,sticky="ew",padx=14,pady=(4,14)); bar.grid_columnconfigure(0,weight=1)
-        self.entry=ctk.CTkEntry(bar,placeholder_text="Ask JARVIS or enter a command…",height=42,fg_color="#0A1826",border_color="#1C4963"); self.entry.grid(row=0,column=0,sticky="ew",padx=(0,7)); self.entry.bind("<Return>",lambda _e:self.send())
-        ctk.CTkButton(bar,text="🎙 VOICE",width=86,height=42,command=self.listen,fg_color="#12435A").grid(row=0,column=1,padx=3)
-        self.wake_btn=ctk.CTkButton(bar,text="WAKE: OFF",width=92,height=42,command=self.toggle_wake_word,fg_color="#12435A"); self.wake_btn.grid(row=0,column=2,padx=3)
-        self.sound_btn=ctk.CTkButton(bar,text="♪ SOUND ON",width=96,height=42,command=self.toggle_sound,fg_color="#12435A"); self.sound_btn.grid(row=0,column=3,padx=3)
-        self.send_btn=ctk.CTkButton(bar,text="TRANSMIT ➤",width=120,height=42,command=self.send,fg_color="#007F9F",hover_color="#009FC4"); self.send_btn.grid(row=0,column=4,padx=(3,0))
+        self.entry=ctk.CTkEntry(bar,placeholder_text="Continue the conversation…",height=44,fg_color=PANEL_ALT,border_color=BORDER); self.entry.grid(row=0,column=0,sticky="ew",padx=(0,7)); self.entry.bind("<Return>",lambda _e:self.send())
+        ctk.CTkButton(bar,text="🎙",width=44,height=44,command=self.listen,fg_color="#183B50",hover_color="#23455C").grid(row=0,column=1,padx=3)
+        self.voice_chat_btn=ctk.CTkButton(bar,text="VOICE CHAT: OFF",width=112,height=44,command=self.toggle_voice_chat,fg_color="#183B50",hover_color="#23455C"); self.voice_chat_btn.grid(row=0,column=2,padx=3)
+        self.wake_btn=ctk.CTkButton(bar,text="WAKE: OFF",width=86,height=44,command=self.toggle_wake_word,fg_color="#183B50"); self.wake_btn.grid(row=0,column=3,padx=3)
+        self.sound_btn=ctk.CTkButton(bar,text="♪",width=44,height=44,command=self.toggle_sound,fg_color="#183B50"); self.sound_btn.grid(row=0,column=4,padx=3)
+        self.send_btn=ctk.CTkButton(bar,text="SEND ➤",width=84,height=44,command=self.send,fg_color="#167F89",hover_color="#209CA0"); self.send_btn.grid(row=0,column=5,padx=(3,0))
         right=ctk.CTkFrame(body,fg_color="transparent"); right.grid(row=1,column=1,sticky="nsew"); right.grid_columnconfigure(0,weight=1)
-        tele=ctk.CTkFrame(right,fg_color=PANEL,border_width=1,border_color="#14334B",corner_radius=16); tele.grid(row=0,column=0,sticky="ew",pady=(0,12))
+        tele=ctk.CTkFrame(right,fg_color=PANEL,border_width=1,border_color=BORDER,corner_radius=16); tele.grid(row=0,column=0,sticky="ew",pady=(0,12))
         ctk.CTkLabel(tele,text="SYSTEM TELEMETRY",text_color=CYAN,font=ctk.CTkFont(size=13,weight="bold")).pack(anchor="w",padx=16,pady=(15,10))
-        self.telemetry=ctk.CTkLabel(tele,text="Loading…",justify="left",text_color="#B4C9D8",font=ctk.CTkFont(size=12)); self.telemetry.pack(anchor="w",padx=16,pady=(0,16))
-        actions=ctk.CTkFrame(right,fg_color=PANEL,border_width=1,border_color="#14334B",corner_radius=16); actions.grid(row=1,column=0,sticky="ew"); actions.grid_columnconfigure((0,1),weight=1)
+        self.telemetry=ctk.CTkLabel(tele,text="Loading…",justify="left",text_color="#C3D2DF",font=ctk.CTkFont(size=12)); self.telemetry.pack(anchor="w",padx=16,pady=(0,16))
+        actions=ctk.CTkFrame(right,fg_color=PANEL,border_width=1,border_color=BORDER,corner_radius=16); actions.grid(row=1,column=0,sticky="ew"); actions.grid_columnconfigure((0,1),weight=1)
         ctk.CTkLabel(actions,text="QUICK ACTIONS",text_color=CYAN,font=ctk.CTkFont(size=13,weight="bold")).grid(row=0,column=0,columnspan=2,sticky="w",padx=16,pady=(15,9))
         for i,(label,url) in enumerate([("Open YouTube","https://youtube.com"),("Open Google","https://google.com"),("Open GitHub","https://github.com/sajinstalin01/Jarvis-ai"),("Open Gmail","https://mail.google.com")]):
-            ctk.CTkButton(actions,text=label,height=36,fg_color="#10283B",hover_color="#19425A",anchor="w",command=lambda u=url:self.open_url(u)).grid(row=1+i//2,column=i%2,sticky="ew",padx=7,pady=5)
+            ctk.CTkButton(actions,text=label,height=36,fg_color="#13283A",hover_color="#23455C",anchor="w",command=lambda u=url:self.open_url(u)).grid(row=1+i//2,column=i%2,sticky="ew",padx=7,pady=5)
         ctk.CTkLabel(actions,text="Browser shortcuts use your default browser.",text_color="#5F7B90",font=ctk.CTkFont(size=10)).grid(row=3,column=0,columnspan=2,padx=12,pady=(8,13),sticky="w")
-        apps=ctk.CTkFrame(right,fg_color=PANEL,border_width=1,border_color="#14334B",corner_radius=16)
+        apps=ctk.CTkFrame(right,fg_color=PANEL,border_width=1,border_color=BORDER,corner_radius=16)
         apps.grid(row=2,column=0,sticky="ew",pady=(12,0)); apps.grid_columnconfigure((0,1),weight=1)
         ctk.CTkLabel(apps,text="APP SHORTCUTS",text_color=CYAN,font=ctk.CTkFont(size=13,weight="bold")).grid(row=0,column=0,columnspan=2,sticky="w",padx=16,pady=(13,8))
         for i,name in enumerate(("Notepad","Calculator","File Explorer","Task Manager","Snipping Tool","PowerShell","Chrome","VS Code","Android Studio","VLC","Discord","Telegram","Spotify","WhatsApp","Windows Security","Settings","Zoom","Notion")):
-            ctk.CTkButton(apps,text=name,height=31,fg_color="#10283B",hover_color="#19425A",
+            ctk.CTkButton(apps,text=name,height=31,fg_color="#13283A",hover_color="#23455C",
                           command=lambda n=name:self.launch_shortcut(n)).grid(row=1+i//2,column=i%2,sticky="ew",padx=6,pady=3)
         ctk.CTkLabel(apps,text="More: launch <app name> • Some shortcuts require installation.",text_color="#5F7B90",font=ctk.CTkFont(size=10)).grid(row=10,column=0,columnspan=2,padx=12,pady=(7,12),sticky="w")
-        ctk.CTkLabel(main,text="JARVIS // UNIFIED PYTHON EDITION",text_color="#456176",font=ctk.CTkFont(size=10)).grid(row=2,column=0,sticky="ew",pady=(10,0))
+        ctk.CTkLabel(main,text="JARVIS // UNIFIED PYTHON EDITION",text_color="#647B91",font=ctk.CTkFont(size=10)).grid(row=2,column=0,sticky="ew",pady=(10,0))
 
     def draw_reactor(self):
         import math
@@ -303,7 +307,7 @@ class JarvisApp(ctk.CTk):
         for a in range(0,360,45):
             c.create_line(70+48*math.cos(math.radians(a)),70+48*math.sin(math.radians(a)),70+56*math.cos(math.radians(a)),70+56*math.sin(math.radians(a)),fill=CYAN,width=2)
     def splash(self):
-        self.overlay=ctk.CTkFrame(self,fg_color="#030A12",corner_radius=0); self.overlay.place(relx=0,rely=0,relwidth=1,relheight=1)
+        self.overlay=ctk.CTkFrame(self,fg_color="#050D17",corner_radius=0); self.overlay.place(relx=0,rely=0,relwidth=1,relheight=1)
         ctk.CTkLabel(self.overlay,text="J.A.R.V.I.S.",font=ctk.CTkFont(size=44,weight="bold"),text_color=CYAN).place(relx=.5,rely=.38,anchor="center")
         ctk.CTkLabel(self.overlay,text="UNIFIED PERSONAL AI // INITIALIZING",text_color=GREEN).place(relx=.5,rely=.48,anchor="center")
         self.progress=ctk.CTkProgressBar(self.overlay,width=320,progress_color=CYAN); self.progress.place(relx=.5,rely=.56,anchor="center"); self.progress.set(0); self.progress_step(0)
@@ -342,12 +346,79 @@ class JarvisApp(ctk.CTk):
                 self.events.put(("status","Recognizing speech…")); self.events.put(("voice",recog.recognize_google(audio)))
             except Exception as e:self.events.put(("answer",f"Voice input failed: {e}"))
         threading.Thread(target=work,daemon=True).start()
-    def speak(self,msg):
-        if not self.tts or os.getenv("JARVIS_SPEAK_RESPONSES","false").lower()!="true":return
+    def speak(self,msg,force=False,on_done=None):
+        """Speak responses off the UI thread; voice-chat mode speaks every reply."""
+        enabled = force or os.getenv("JARVIS_SPEAK_RESPONSES","false").lower()=="true"
+        if not self.tts or not enabled:
+            if on_done:on_done()
+            return
         def work():
-            try:self.tts.say(str(msg)[:1500]); self.tts.runAndWait()
-            except Exception:pass
-        threading.Thread(target=work,daemon=True).start()
+            try:
+                self.tts.say(str(msg)[:1500])
+                self.tts.runAndWait()
+            except Exception:
+                pass
+            finally:
+                if on_done:on_done()
+        threading.Thread(target=work,name="JarvisSpeechOutput",daemon=True).start()
+
+    def toggle_voice_chat(self):
+        if not self.sr:
+            self.add("SYSTEM","Real-time voice chat needs SpeechRecognition and a compatible PyAudio microphone installation.")
+            return
+        if not self.tts:
+            self.add("SYSTEM","Voice chat needs pyttsx3 and an available Windows text-to-speech voice.")
+            return
+        self.voice_chat_active = not self.voice_chat_active
+        if self.voice_chat_active:
+            self.voice_chat_stop.clear()
+            self.voice_chat_ready.set()
+            self.voice_chat_btn.configure(text="VOICE CHAT: ON",fg_color="#176A51")
+            self.add("SYSTEM","Voice chat active. Speak naturally after each reply; click VOICE CHAT: ON to stop. Speech recognition uses Google's cloud service.")
+            self.voice_chat_thread=threading.Thread(target=self.voice_chat_loop,name="JarvisRealtimeVoiceChat",daemon=True)
+            self.voice_chat_thread.start()
+        else:
+            self.voice_chat_stop.set()
+            self.voice_chat_ready.set()
+            self.voice_chat_btn.configure(text="VOICE CHAT: OFF",fg_color="#183B50")
+            self.add("SYSTEM","Voice chat stopped.")
+
+    def voice_chat_loop(self):
+        recognizer=self.sr.Recognizer()
+        recognizer.pause_threshold=0.65
+        recognizer.non_speaking_duration=0.35
+        while self.voice_chat_active and not self.voice_chat_stop.is_set():
+            if not self.voice_chat_ready.wait(timeout=0.25):
+                continue
+            self.voice_chat_ready.clear()
+            if self.busy:
+                self.voice_chat_ready.set()
+                time.sleep(0.2)
+                continue
+            try:
+                with self.sr.Microphone() as source:
+                    self.events.put(("status","VOICE CHAT • LISTENING"))
+                    audio=recognizer.listen(source,timeout=3,phrase_time_limit=12)
+                self.events.put(("status","VOICE CHAT • THINKING"))
+                phrase=recognizer.recognize_google(audio).strip()
+                if phrase:
+                    self.events.put(("voice_chat_command",phrase))
+                    # The UI sets voice_chat_ready only after the answer has been spoken.
+                    continue
+                self.voice_chat_ready.set()
+            except self.sr.WaitTimeoutError:
+                self.voice_chat_ready.set()
+            except self.sr.UnknownValueError:
+                self.voice_chat_ready.set()
+            except self.sr.RequestError as exc:
+                self.events.put(("answer",f"Voice recognition service unavailable: {exc}"))
+                self.voice_chat_ready.wait(timeout=8)
+                self.voice_chat_ready.set()
+            except Exception as exc:
+                if not self.voice_chat_stop.is_set():
+                    self.events.put(("answer",f"Voice chat microphone error: {exc}"))
+                    self.voice_chat_ready.wait(timeout=5)
+                    self.voice_chat_ready.set()
     def send(self):
         if self.busy:return
         prompt=self.entry.get().strip()
@@ -372,6 +443,8 @@ class JarvisApp(ctk.CTk):
 • workflow save <name>: launch chrome; open github; workflow list/run/delete <name>
 • dev diagnostics, dev test, dev git status
 • click WAKE: OFF to enable optional wake-word mode; say 'Hey JARVIS'
+• click VOICE CHAT: OFF for continuous turn-by-turn spoken conversation
+• conversation context and saved memories are supplied to AI for relevant follow-ups
 • ask a question for Groq/Gemini AI
 API keys stay in your local .env. Wake-word recognition uses the configured speech recognition service."""
         if p.startswith("remember "):
@@ -474,9 +547,22 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
             return message
         return None
     def ask_ai(self,prompt):
-        """Query Groq first, automatically migrate retired model IDs, then use Gemini."""
+        """Answer with recent dialogue and persistent user memories for natural follow-ups."""
         try:
-            answer, provider = generate_response(prompt)
+            rows=self.store.search_history("",limit=20)
+            # The current user message was saved before the request starts; do not duplicate it.
+            if rows and rows[0].get("speaker")=="BOSS" and rows[0].get("content")==prompt:
+                rows=rows[1:]
+            dialogue=[]
+            for row in reversed(rows):
+                speaker=row.get("speaker","")
+                if speaker=="BOSS":
+                    dialogue.append({"role":"user","content":row.get("content","")})
+                elif speaker=="J.A.R.V.I.S.":
+                    dialogue.append({"role":"assistant","content":row.get("content","")})
+            memories=self.store.list_memories(limit=8)
+            memory_text="\n".join(f"- {item['content']}" for item in memories)
+            answer, provider = generate_response(prompt,context=dialogue[-16:],saved_memories=memory_text)
             self.events.put(("ai", provider))
             return answer
         except Exception as exc:
@@ -521,10 +607,16 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
                             except Exception as exc:self.add("WORKFLOW",f"{step} failed: {exc}")
                 elif kind=="voice":
                     self.entry.delete(0,"end"); self.entry.insert(0,msg); self.send()
-                elif kind=="voice_command":
+                elif kind=="voice_command" or kind=="voice_chat_command":
                     self.entry.delete(0,"end"); self.entry.insert(0,msg); self.send()
+                elif kind=="answer":
+                    self.add("J.A.R.V.I.S.",msg); self.busy=False; self.send_btn.configure(state="normal",text="SEND ➤")
+                    if self.voice_chat_active:
+                        self.speak(msg,force=True,on_done=self.voice_chat_ready.set)
+                    else:
+                        self.speak(msg)
                 else:
-                    self.add("J.A.R.V.I.S.",msg); self.busy=False; self.send_btn.configure(state="normal",text="TRANSMIT ➤"); self.speak(msg)
+                    self.add("J.A.R.V.I.S.",msg); self.busy=False; self.send_btn.configure(state="normal",text="SEND ➤"); self.speak(msg)
         except queue.Empty:pass
         self.after(100,self.poll)
     def start_gemini_validation(self):
@@ -576,7 +668,7 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
             self.wake_thread.start()
         else:
             self.wake_stop.set()
-            self.wake_btn.configure(text="WAKE: OFF",fg_color="#12435A")
+            self.wake_btn.configure(text="WAKE: OFF",fg_color="#183B50")
             self.add("SYSTEM","Wake-word listening disabled.")
 
     def wake_word_loop(self):
@@ -655,7 +747,7 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
             field=ctk.CTkEntry(controls,placeholder_text=placeholder); field.grid(row=0,column=0,sticky="ew",padx=(0,6),pady=4); return field
         button_row=[1]
         def button(label,fn):
-            ctk.CTkButton(controls,text=label,command=fn,fg_color="#12435A").grid(row=button_row[0],column=0,sticky="ew",pady=4)
+            ctk.CTkButton(controls,text=label,command=fn,fg_color="#183B50").grid(row=button_row[0],column=0,sticky="ew",pady=4)
             button_row[0]+=1
         if kind=="monitor":
             def refresh():
