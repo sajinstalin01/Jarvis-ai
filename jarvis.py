@@ -278,7 +278,7 @@ class JarvisApp(ctk.CTk):
         ctk.CTkButton(bar,text="🎙",width=44,height=44,command=self.listen,fg_color="#183B50",hover_color="#23455C").grid(row=0,column=1,padx=3)
         self.voice_chat_btn=ctk.CTkButton(bar,text="VOICE CHAT: OFF",width=112,height=44,command=self.toggle_voice_chat,fg_color="#183B50",hover_color="#23455C"); self.voice_chat_btn.grid(row=0,column=2,padx=3)
         self.wake_btn=ctk.CTkButton(bar,text="WAKE: OFF",width=86,height=44,command=self.toggle_wake_word,fg_color="#183B50"); self.wake_btn.grid(row=0,column=3,padx=3)
-        self.sound_btn=ctk.CTkButton(bar,text="♪",width=44,height=44,command=self.toggle_sound,fg_color="#183B50"); self.sound_btn.grid(row=0,column=4,padx=3)
+        self.sound_btn=ctk.CTkButton(bar,text="SOUND ON",width=64,height=44,command=self.toggle_sound,fg_color="#183B50"); self.sound_btn.grid(row=0,column=4,padx=3)
         self.send_btn=ctk.CTkButton(bar,text="SEND ➤",width=84,height=44,command=self.send,fg_color="#167F89",hover_color="#209CA0"); self.send_btn.grid(row=0,column=5,padx=(3,0))
         right=ctk.CTkFrame(body,fg_color="transparent"); right.grid(row=1,column=1,sticky="nsew"); right.grid_columnconfigure(0,weight=1)
         tele=ctk.CTkFrame(right,fg_color=PANEL,border_width=1,border_color=BORDER,corner_radius=16); tele.grid(row=0,column=0,sticky="ew",pady=(0,12))
@@ -334,7 +334,7 @@ class JarvisApp(ctk.CTk):
     def clear_chat(self):
         self.chat.configure(state="normal"); self.chat.delete("1.0","end"); self.chat.configure(state="disabled")
     def toggle_sound(self):
-        self.sound=not self.sound; self.sound_btn.configure(text="♪ SOUND ON" if self.sound else "♪ SOUND OFF")
+        self.sound=not self.sound; self.sound_btn.configure(text="SOUND ON" if self.sound else "SOUND OFF")
     def listen(self):
         if not self.sr:
             self.add("SYSTEM","Voice input requires SpeechRecognition and a compatible PyAudio installation."); return
@@ -363,6 +363,10 @@ class JarvisApp(ctk.CTk):
         threading.Thread(target=work,name="JarvisSpeechOutput",daemon=True).start()
 
     def toggle_voice_chat(self):
+        if self.wake_enabled:
+            self.wake_enabled=False
+            self.wake_stop.set()
+            self.wake_btn.configure(text="WAKE: OFF",fg_color="#183B50")
         if not self.sr:
             self.add("SYSTEM","Real-time voice chat needs SpeechRecognition and a compatible PyAudio microphone installation.")
             return
@@ -656,6 +660,9 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
         threading.Thread(target=validate,name="GroqKeyValidation",daemon=True).start()
 
     def toggle_wake_word(self):
+        if self.voice_chat_active:
+            self.add("SYSTEM","Stop Voice Chat before enabling wake-word mode so only one feature uses the microphone.")
+            return
         if not self.sr:
             self.add("SYSTEM","Wake-word mode requires SpeechRecognition and compatible PyAudio.")
             return
