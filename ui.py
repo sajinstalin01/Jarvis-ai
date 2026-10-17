@@ -998,6 +998,7 @@ class MetricBar(QWidget):
         p.setFont(QFont("Courier New", 9, QFont.Weight.Bold))
         p.setPen(QPen(bar_col if self._text != "--" else qcol(C.TEXT_DIM), 1))
         p.drawText(QRectF(0, 4, W - 6, 16), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, self._text)
+
         p.end()
 
 class LogWidget(QTextEdit):
@@ -2995,7 +2996,8 @@ class ProvidersOverlay(_HudOverlay):
             f"QComboBox {{ background: {C.DARK}; color: {C.TEXT}; "
             f"border: 1px solid {C.BORDER}; border-radius: 3px; padding: 3px 9px; }}"
             f"QComboBox:hover {{ border-color: {C.BORDER_B}; }}"
-            f"QComboBox::drop-down {{ border: none; width: 18px; }}"            f"QComboBox QAbstractItemView {{ background: {C.DARK}; color: {C.TEXT}; "
+            f"QComboBox::drop-down {{ border: none; width: 18px; }}"
+            f"QComboBox QAbstractItemView {{ background: {C.DARK}; color: {C.TEXT}; "
             f"selection-background-color: {C.PRI_GHO}; "
             f"border: 1px solid {C.BORDER_B}; padding: 2px; }}")
         return box
@@ -3995,6 +3997,7 @@ class RemoteKeyOverlay(QWidget):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(24, 16, 24, 16)
         lay.setSpacing(5)
+
         def _lbl(txt, fs=9, bold=False, color=C.PRI,
                  align=Qt.AlignmentFlag.AlignCenter):
             w = QLabel(txt)
@@ -4993,7 +4996,8 @@ class MainWindow(QMainWindow):
                                      capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5)
                 p = Path(out.stdout.strip())
                 if out.stdout.strip() and p != home and p.is_dir():
-                    return p            except Exception:
+                    return p
+            except Exception:
                 pass
             try:
                 cfg = home / ".config" / "user-dirs.dirs"
@@ -5992,7 +5996,8 @@ class MainWindow(QMainWindow):
         rule.setStyleSheet(f"background: {C.BORDER};")
         lay.addWidget(rule)
 
-        self._quiz_q_lbl = QLabel("")        self._quiz_q_lbl.setWordWrap(True)
+        self._quiz_q_lbl = QLabel("")
+        self._quiz_q_lbl.setWordWrap(True)
         self._quiz_q_lbl.setFont(QFont("Courier New", 9))
         self._quiz_q_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
         lay.addWidget(self._quiz_q_lbl)
@@ -6991,7 +6996,8 @@ class JarvisUI:
     def on_audio_device_change(self):
         return self._win.on_audio_device_change
 
-    @on_audio_device_change.setter    def on_audio_device_change(self, cb):
+    @on_audio_device_change.setter
+    def on_audio_device_change(self, cb):
         self._win.on_audio_device_change = cb
 
     def show_confirm(self, title: str, detail: str) -> None:
