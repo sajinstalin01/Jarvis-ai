@@ -4,9 +4,12 @@
 
 ## Features
 - Redesigned professional dark HUD: deep navy panels, restrained teal/blue accents, refined typography, consistent borders, a cleaner dashboard, animated reactor, loading splash, live clock/date, system telemetry, quick links and clear-chat button.
+- Animated HUD with a rotating/pulsing reactor, refined high-contrast panels, loading splash and live telemetry.
 - Sound toggle, optional spoken responses, push-to-talk and **continuous turn-by-turn Voice Chat** with microphone listening, AI responses and spoken replies. Voice Chat listens again after the response finishes; click the toggle to stop.
 - Groq AI with Gemini fallback using keys from local `.env`; requests include recent conversation turns and saved user memories to support natural follow-ups.
 - Local commands: time/date/system info, safe arithmetic calculator, browser search and website shortcuts.
+- **PC control:** `pc status`, `pc lock`, `pc mute`, `pc screenshot`; `pc shutdown` and `pc restart` always require confirmation in the desktop GUI and schedule the action after a 10-second delay.
+- **Authenticated remote control:** start/stop from the sidebar. Supports remote status, launching an allow-listed app and locking the session. No arbitrary shell, remote file browsing or remote power commands.
 - **Expanded Windows shortcuts:** Notepad, Calculator, Paint, File Explorer, Task Manager, Settings, Snipping Tool, PowerShell, Terminal, Command Prompt, Control Panel, Device Manager, Disk Management, Services, Event Viewer, Task Scheduler, System Information, Resource Monitor, Registry Editor, Windows Security, Magnifier, On-Screen Keyboard, Remote Desktop, Character Map, System Configuration, Computer Management, Performance Monitor, Disk Cleanup, DirectX Diagnostic, Windows Memory Diagnostic, Programs and Features, Network Connections, Windows Firewall, Sound Settings, Mouse Settings, Internet Properties, System Properties, Power Options, Local Users and Groups, Group Policy Editor, Certificate Manager and Steps Recorder.
 - **Expanded third-party shortcuts:** Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, VS Code, Visual Studio, Android Studio, PyCharm, IntelliJ IDEA, Git Bash, GitHub Desktop, Cursor, Windsurf, Sublime Text, Postman, Docker Desktop, Jupyter Notebook, Anaconda Navigator, MySQL Workbench, DBeaver, FileZilla, VLC, OBS Studio, Discord, Telegram, WhatsApp Desktop, Spotify, Zoom, Microsoft Teams, Slack, Notion, Obsidian, Dropbox, OneDrive, Google Drive, Steam, Epic Games Launcher, 7-Zip, WinRAR, Notepad++, Photoshop, Premiere Pro, After Effects, GIMP, Blender, Audacity, HandBrake, DaVinci Resolve and Figma.
 - GUI app shortcut panel now includes Windows Security, Settings, Zoom and Notion in addition to the existing quick-launch buttons. Use commands like `launch computer management`, `launch network connections`, `launch zoom`, `launch teams`, `launch notion`, `launch cursor`, `launch docker desktop`, `launch blender`, `launch gimp`, `launch figma`, `launch postman` or `launch filezilla`. Apps must be installed and discoverable by Windows, or their executable paths must be added to `APP_ALIASES`.
@@ -36,6 +39,7 @@ Linux/macOS: `bash run_linux_mac.sh`.
 
 ## Commands
 - `help`, `time`, `date`, `system info`
+- `pc status`, `pc lock`, `pc mute`, `pc screenshot`, `pc shutdown`, `pc restart`
 - `open <app name>` and `launch <app name>`; `open <website>`; `search <query>`
 - `calculate 12 * (8 + 2)`
 - `search Python speech recognition`
@@ -51,6 +55,17 @@ Linux/macOS: `bash run_linux_mac.sh`.
 Voice input requires SpeechRecognition, a microphone and compatible PyAudio; recognition uses Google's service and requires internet. Set `JARVIS_SPEAK_RESPONSES=true` for optional spoken replies. Groq is tried first, then Gemini. Keep API keys in local `.env`; never commit real keys.
 
 **AI provider recovery:** JARVIS now defaults to Groq's `openai/gpt-oss-120b`. If your local `.env` still sets the retired `llama-3.3-70b-versatile` model, JARVIS automatically retries with a supported replacement after a model-not-found response. Gemini requests keep a live client reference for the full request and close it only after the response is received. You can override `GROQ_MODEL` and `GEMINI_MODEL` in `.env`; restart JARVIS after changes.
+
+## Remote control (opt-in)
+
+Use **Remote Control** in the sidebar to start or stop the authenticated API. Choose **NO** in the first prompt for loopback-only testing, or **YES** to explicitly allow connections from another device on your trusted local network. JARVIS generates a random bearer token in memory and displays it once; keep it private. The server stops and discards the token when you press the same sidebar button again or close JARVIS.
+
+Authenticated API:
+- `GET /api/status` — basic system metrics.
+- `POST /api/command` with JSON `{"command":"launch notepad"}` — allow-listed app launch.
+- Supported remote commands: `status`, `launch <app>`, `lock screen`.
+
+Include the token in the HTTP `Authorization: Bearer <token>` header. The remote API intentionally rejects shell commands, arbitrary URLs, remote file access, shutdown/restart, and other unrestricted actions. **LAN mode uses plain HTTP, not TLS encryption**: only enable it on a trusted private network, do not forward the port from your router, and stop the server when finished. The token is not persisted to disk. A Windows firewall prompt may appear.
 
 ## Conversation memory and real-time voice chat
 
@@ -81,7 +96,9 @@ The updater now searches PATH and common Git for Windows installation folders fo
 Keep the JSON valid and use doubled backslashes in Windows paths. If Git is not installed, install Git for Windows first. Run `python auto_update.py` for one check or `python auto_update.py --watch` to keep checking. The updater only fast-forward pulls. When local edits exist and `local_changes_policy` is `stash_restore`, it first saves tracked and untracked edits to a named Git stash, updates, and then restores those edits. If restoration conflicts, it keeps the stash as a backup and tells you to resolve the conflict; it never intentionally discards those edits. Set `local_changes_policy` to `skip` if you prefer manual handling. Restart JARVIS after an update to load changed Python code. The Windows launcher invokes the updater even if `git` is not on PATH, so it can show a helpful setup message.
 
 ## Project files
-- `jarvis.py` — unified application, voice, AI, app launcher and WhatsApp Desktop launcher.
+- `jarvis.py` — unified application, animated HUD, voice, AI, app launcher and local PC controls.
+- `jarvis_control.py` — small, explicit local PC-control actions.
+- `jarvis_remote.py` — authenticated allow-listed remote API.
 - `auto_update.py` — safe updater/watcher.
 - `requirements.txt`, `.env.example`, `.gitignore` — dependencies/config.
 - `run_windows.bat`, `run_linux_mac.sh` — setup, update and launch.
