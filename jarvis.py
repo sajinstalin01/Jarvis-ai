@@ -231,7 +231,7 @@ class JarvisApp(ctk.CTk):
         self.add("J.A.R.V.I.S.","Dashboard ready. AI provider checks are running. Local memory and history are enabled.")
 
     def build_ui(self):
-        side=ctk.CTkFrame(self,width=220,corner_radius=0,fg_color="#081522",border_width=1,border_color="#12334A")
+        side=ctk.CTkFrame(self,width=220,corner_radius=0,fg_color="#091522",border_width=1,border_color=BORDER)
         side.grid(row=0,column=0,sticky="nsew"); side.grid_propagate(False)
         ctk.CTkLabel(side,text="J.A.R.V.I.S.",font=ctk.CTkFont(size=26,weight="bold"),text_color=CYAN).pack(anchor="w",padx=18,pady=(26,2))
         ctk.CTkLabel(side,text="PERSONAL INTELLIGENCE SYSTEM",font=ctk.CTkFont(size=10,weight="bold"),text_color=MUTED).pack(anchor="w",padx=20,pady=(0,24))
@@ -265,13 +265,13 @@ class JarvisApp(ctk.CTk):
         hero=ctk.CTkFrame(body,fg_color=PANEL,border_width=1,border_color=BORDER,corner_radius=18); hero.grid(row=0,column=0,columnspan=2,sticky="ew",pady=(0,14)); hero.grid_columnconfigure(1,weight=1)
         self.reactor=ctk.CTkCanvas(hero,width=140,height=140,bg=PANEL,highlightthickness=0); self.reactor.grid(row=0,column=0,padx=(18,6),pady=12); self.draw_reactor()
         ht=ctk.CTkFrame(hero,fg_color="transparent"); ht.grid(row=0,column=1,sticky="w",padx=18,pady=20)
-        ctk.CTkLabel(ht,text="YOUR PERSONAL INTELLIGENCE, READY.",text_color="#EEF8FF",font=ctk.CTkFont(size=25,weight="bold")).pack(anchor="w")
+        ctk.CTkLabel(ht,text="YOUR PERSONAL INTELLIGENCE, READY.",text_color=TEXT,font=ctk.CTkFont(size=25,weight="bold")).pack(anchor="w")
         ctk.CTkLabel(ht,text="Context-aware AI • Desktop telemetry • Voice interface",text_color=MUTED,font=ctk.CTkFont(size=13)).pack(anchor="w",pady=(5,12))
         ctk.CTkLabel(ht,text="● SYSTEM ONLINE  /  MEMORY ACTIVE",text_color=GREEN,fg_color="#12352F",corner_radius=8,font=ctk.CTkFont(size=11,weight="bold"),padx=12,pady=6).pack(anchor="w")
         chat=ctk.CTkFrame(body,fg_color=PANEL,border_width=1,border_color=BORDER,corner_radius=16); chat.grid(row=1,column=0,sticky="nsew",padx=(0,12)); chat.grid_columnconfigure(0,weight=1); chat.grid_rowconfigure(1,weight=1)
         ch=ctk.CTkFrame(chat,fg_color="transparent"); ch.grid(row=0,column=0,sticky="ew",padx=16,pady=(13,5))
         ctk.CTkLabel(ch,text="✧ JARVIS CONSOLE",text_color=CYAN,font=ctk.CTkFont(size=14,weight="bold")).pack(side="left")
-        ctk.CTkButton(ch,text="CLEAR",width=60,height=26,command=self.clear_chat,fg_color="#10263A").pack(side="right")
+        ctk.CTkButton(ch,text="CLEAR",width=60,height=26,command=self.clear_chat,fg_color="#13283A").pack(side="right")
         self.chat=ctk.CTkTextbox(chat,fg_color="#07131F",text_color=TEXT,border_width=1,border_color=BORDER,corner_radius=10,wrap="word",font=ctk.CTkFont(size=13)); self.chat.grid(row=1,column=0,sticky="nsew",padx=14,pady=8); self.chat.configure(state="disabled")
         bar=ctk.CTkFrame(chat,fg_color="transparent"); bar.grid(row=2,column=0,sticky="ew",padx=14,pady=(4,14)); bar.grid_columnconfigure(0,weight=1)
         self.entry=ctk.CTkEntry(bar,placeholder_text="Continue the conversation…",height=44,fg_color=PANEL_ALT,border_color=BORDER); self.entry.grid(row=0,column=0,sticky="ew",padx=(0,7)); self.entry.bind("<Return>",lambda _e:self.send())
@@ -288,22 +288,22 @@ class JarvisApp(ctk.CTk):
         ctk.CTkLabel(actions,text="QUICK ACTIONS",text_color=CYAN,font=ctk.CTkFont(size=13,weight="bold")).grid(row=0,column=0,columnspan=2,sticky="w",padx=16,pady=(15,9))
         for i,(label,url) in enumerate([("Open YouTube","https://youtube.com"),("Open Google","https://google.com"),("Open GitHub","https://github.com/sajinstalin01/Jarvis-ai"),("Open Gmail","https://mail.google.com")]):
             ctk.CTkButton(actions,text=label,height=36,fg_color="#13283A",hover_color="#23455C",anchor="w",command=lambda u=url:self.open_url(u)).grid(row=1+i//2,column=i%2,sticky="ew",padx=7,pady=5)
-        ctk.CTkLabel(actions,text="Browser shortcuts use your default browser.",text_color="#5F7B90",font=ctk.CTkFont(size=10)).grid(row=3,column=0,columnspan=2,padx=12,pady=(8,13),sticky="w")
+        ctk.CTkLabel(actions,text="Browser shortcuts use your default browser.",text_color="#71879C",font=ctk.CTkFont(size=10)).grid(row=3,column=0,columnspan=2,padx=12,pady=(8,13),sticky="w")
         apps=ctk.CTkFrame(right,fg_color=PANEL,border_width=1,border_color=BORDER,corner_radius=16)
         apps.grid(row=2,column=0,sticky="ew",pady=(12,0)); apps.grid_columnconfigure((0,1),weight=1)
         ctk.CTkLabel(apps,text="APP SHORTCUTS",text_color=CYAN,font=ctk.CTkFont(size=13,weight="bold")).grid(row=0,column=0,columnspan=2,sticky="w",padx=16,pady=(13,8))
         for i,name in enumerate(("Notepad","Calculator","File Explorer","Task Manager","Snipping Tool","PowerShell","Chrome","VS Code","Android Studio","VLC","Discord","Telegram","Spotify","WhatsApp","Windows Security","Settings","Zoom","Notion")):
             ctk.CTkButton(apps,text=name,height=31,fg_color="#13283A",hover_color="#23455C",
                           command=lambda n=name:self.launch_shortcut(n)).grid(row=1+i//2,column=i%2,sticky="ew",padx=6,pady=3)
-        ctk.CTkLabel(apps,text="More: launch <app name> • Some shortcuts require installation.",text_color="#5F7B90",font=ctk.CTkFont(size=10)).grid(row=10,column=0,columnspan=2,padx=12,pady=(7,12),sticky="w")
+        ctk.CTkLabel(apps,text="More: launch <app name> • Some shortcuts require installation.",text_color="#71879C",font=ctk.CTkFont(size=10)).grid(row=10,column=0,columnspan=2,padx=12,pady=(7,12),sticky="w")
         ctk.CTkLabel(main,text="JARVIS // UNIFIED PYTHON EDITION",text_color="#647B91",font=ctk.CTkFont(size=10)).grid(row=2,column=0,sticky="ew",pady=(10,0))
 
     def draw_reactor(self):
         import math
         c=self.reactor
-        c.create_oval(12,12,128,128,outline="#12415A",width=2); c.create_oval(22,22,118,118,outline=CYAN,width=2)
-        c.create_oval(32,32,108,108,outline="#0785A8",width=1); c.create_oval(43,43,97,97,fill="#063247",outline=CYAN,width=2)
-        c.create_oval(52,52,88,88,fill="#00A6D5",outline="#A6F4FF",width=2); c.create_oval(62,62,78,78,fill="#D3FCFF",outline="")
+        c.create_oval(12,12,128,128,outline="#1E4054",width=2); c.create_oval(22,22,118,118,outline=CYAN,width=2)
+        c.create_oval(32,32,108,108,outline="#2B9A9A",width=1); c.create_oval(43,43,97,97,fill="#103044",outline=CYAN,width=2)
+        c.create_oval(52,52,88,88,fill="#3AAFA9",outline=CYAN,width=2); c.create_oval(62,62,78,78,fill=TEXT,outline="")
         for a in range(0,360,45):
             c.create_line(70+48*math.cos(math.radians(a)),70+48*math.sin(math.radians(a)),70+56*math.cos(math.radians(a)),70+56*math.sin(math.radians(a)),fill=CYAN,width=2)
     def splash(self):
@@ -587,7 +587,7 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
                         self.gemini_status.configure(text="● GEMINI: INVALID KEY",text_color="#FF7070")
                         self.add("SYSTEM","Gemini API key validation failed. Check GEMINI_API_KEY in your local .env; the key itself is never displayed.")
                     elif msg=="ERROR":
-                        self.gemini_status.configure(text="● GEMINI: CHECK FAILED",text_color="#FFCA71")
+                        self.gemini_status.configure(text="● GEMINI: CHECK FAILED",text_color=GOLD)
                         self.add("SYSTEM","Could not validate Gemini right now (network/API issue). JARVIS will retry through its normal AI fallback when you ask a question.")
                     else:
                         self.gemini_status.configure(text="● GEMINI: NOT CONFIGURED",text_color=MUTED)
@@ -629,7 +629,7 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
         if not key:
             self.events.put(("gemini_validation", "NOT_CONFIGURED"))
             return
-        self.gemini_status.configure(text="● GEMINI: CHECKING…", text_color="#FFCA71")
+        self.gemini_status.configure(text="● GEMINI: CHECKING…", text_color=GOLD)
         def validate():
             try:
                 from google import genai
@@ -746,7 +746,7 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
         win=ctk.CTkToplevel(self); win.title("J.A.R.V.I.S. // "+titles.get(kind,"Tools")); win.geometry("760x620"); win.configure(fg_color=BG); win.transient(self)
         win.grid_columnconfigure(0,weight=1); win.grid_rowconfigure(1,weight=1)
         ctk.CTkLabel(win,text=titles.get(kind,"JARVIS Tools"),text_color=CYAN,font=ctk.CTkFont(size=20,weight="bold")).grid(row=0,column=0,sticky="w",padx=18,pady=14)
-        output=ctk.CTkTextbox(win,fg_color="#06101B",text_color="#DDEBF5",wrap="word"); output.grid(row=1,column=0,sticky="nsew",padx=18,pady=8)
+        output=ctk.CTkTextbox(win,fg_color=PANEL_ALT,text_color=TEXT,wrap="word"); output.grid(row=1,column=0,sticky="nsew",padx=18,pady=8)
         controls=ctk.CTkFrame(win,fg_color="transparent"); controls.grid(row=2,column=0,sticky="ew",padx=18,pady=12); controls.grid_columnconfigure(0,weight=1)
         def show(text):
             output.configure(state="normal"); output.delete("1.0","end"); output.insert("end",text); output.configure(state="disabled")
