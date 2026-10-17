@@ -140,3 +140,21 @@ dev test
 ```
 
 **Privacy and limitations:** Local conversation history and saved memories are stored unencrypted in the local SQLite database. Do not save passwords, API keys or other secrets as memories. The wake-word feature uses cloud speech recognition rather than an offline wake-word engine. Metrics such as temperature are not available on every computer.
+
+
+## New PyQt6 holographic HUD
+
+The active `jarvis.py` entry point now launches the supplied `ui.py` interface rather than the former CustomTkinter dashboard. The previous dashboard is retained as `jarvis_legacy.py` only as a compatibility source for its allow-listed app-launch and calculator helpers; it is not the active UI.
+
+### First run
+1. Update the repository and install dependencies: `python -m pip install -r requirements.txt`.
+2. Copy `.env.example` to `.env` if needed, then add `GROQ_API_KEY` and/or `GEMINI_API_KEY`.
+3. Start the application with `python jarvis.py`. If no API key is configured, the HUD opens its Gemini setup overlay.
+4. UI preferences are saved locally in `config/ui_settings.json`; API setup is stored locally in `config/api_keys.json`. Do not commit either file with real keys.
+
+### Integration notes
+- The uploaded HUD is `ui.py`; `jarvis.py` connects its chat callbacks to the existing Groq/Gemini client, SQLite conversation history and memory, app-launch helpers, reminders, system metrics and allow-listed PC actions.
+- The HUD uses compatibility modules under `memory/`, `core/` and `providers/` for optional settings panels. The provider pipeline editor remains a compatibility shell; actual AI chat uses the existing Groq-first, Gemini-fallback implementation in `jarvis_ai.py`.
+- Push-to-talk uses the optional SpeechRecognition/PyAudio microphone stack. Wake-word activation is not bundled and reports as unavailable rather than pretending to listen.
+- The remote API binds to loopback by default and supports status, lock and allow-listed app launch. Do not expose it to the public internet.
+- PyQt6 Multimedia may be unavailable on stripped-down installations; the HUD handles that as an optional video feature.
