@@ -165,6 +165,9 @@ class JarvisBridge:
             content = str(row.get("content", "")).strip()
             if content:
                 context.append({"role": role, "content": content[:3000]})
+        # Current prompt is stored before routing; generate_response appends it separately.
+        if context and context[-1].get("role") == "user":
+            context.pop()
         memories = self.store.list_memories(limit=8)
         saved = "\n".join(f"- {m['content']}" for m in memories if m.get("content"))
         return context[-16:], saved
