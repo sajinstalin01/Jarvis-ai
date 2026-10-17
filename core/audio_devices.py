@@ -10,3 +10,7 @@ def list_devices(kind="input"):
         return []
 def get_output_volume(device=""): return None
 def set_output_volume(value, device=""): return False
+def measure_input(device=""):
+    return False, "Audio input testing is not available; install sounddevice to enumerate devices."
+def play_tone(device=""):
+    return False, "Audio tone testing is not available in the compatibility layer."
