@@ -3,7 +3,7 @@ import types
 import unittest
 from unittest.mock import Mock, patch
 
-from jarvis_ai import DEFAULT_GROQ_MODEL, generate_response
+from jarvis_ai import DEFAULT_GROQ_MODEL, generate_response, _gemini_contents
 
 
 class JarvisAITests(unittest.TestCase):
@@ -27,10 +27,30 @@ class JarvisAITests(unittest.TestCase):
             answer, provider = generate_response(
                 "hello", groq_key="test-key", gemini_key="",
                 groq_model="llama-3.3-70b-versatile",
+                context=[{"role": "user", "content": "I prefer concise answers."},
+                         {"role": "assistant", "content": "I will keep it concise."}],
+                saved_memories="Prefers concise answers",
             )
         self.assertEqual(answer, "Groq works")
         self.assertEqual(provider, "GROQ (openai/gpt-oss-120b)")
         self.assertEqual(completions.create.call_count, 2)
+        sent_messages = completions.create.call_args_list[-1].kwargs["messages"]
+        self.assertIn("Prefers concise answers", sent_messages[0]["content"])
+        self.assertEqual(sent_messages[1]["content"], "I prefer concise answers.")
+        self.assertEqual(sent_messages[2]["content"], "I will keep it concise.")
+        self.assertEqual(sent_messages[3]["content"], "hello")
+
+    def test_gemini_prompt_contains_recent_context_and_memories(self):
+        prompt = _gemini_contents(
+            "What about the second option?",
+            [{"role": "user", "content": "Compare two laptops."},
+             {"role": "assistant", "content": "Option one is faster."}],
+            "You are JARVIS. Saved memory: prefers value.",
+        )
+        self.assertIn("Saved memory: prefers value", prompt)
+        self.assertIn("User: Compare two laptops.", prompt)
+        self.assertIn("JARVIS: Option one is faster.", prompt)
+        self.assertIn("User: What about the second option?", prompt)
 
     def test_gemini_client_stays_open_during_request_and_closes_after(self):
         google_module = types.ModuleType("google")
