@@ -63,7 +63,8 @@ def _groq_response(
             response = client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "system", "content": system_message},
+                    *(context or [])[-16:],
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.7,
