@@ -4,6 +4,7 @@ import ast, datetime, operator, os, platform, queue, shutil, socket, subprocess,
 from pathlib import Path
 from tkinter import messagebox
 from jarvis_services import JarvisStore, system_metrics, developer_diagnostics, parse_reminder_command
+from jarvis_ai import generate_response
 try:
     import customtkinter as ctk
 except ImportError as exc:
@@ -473,23 +474,15 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
             return message
         return None
     def ask_ai(self,prompt):
-        groq_key=os.getenv("GROQ_API_KEY","").strip(); gemini_key=os.getenv("GEMINI_API_KEY","").strip(); error="GROQ_API_KEY not configured"
-        if groq_key:
-            try:
-                from groq import Groq
-                model=os.getenv("GROQ_MODEL","llama-3.3-70b-versatile")
-                r=Groq(api_key=groq_key).chat.completions.create(model=model,messages=[{"role":"system","content":"You are JARVIS, a helpful desktop AI. Address the user as Boss. Never claim actions you did not perform."},{"role":"user","content":prompt}],temperature=.7,max_tokens=1200)
-                self.events.put(("ai",f"GROQ ({model})")); return r.choices[0].message.content or "No response returned."
-            except Exception as e:error=str(e)
-        if gemini_key:
-            try:
-                from google import genai
-                model=os.getenv("GEMINI_MODEL","gemini-2.5-flash")
-                r=genai.Client(api_key=gemini_key).models.generate_content(model=model,contents="You are JARVIS, a helpful desktop AI. Address the user as Boss. Never claim actions you did not perform.\n"+prompt)
-                self.events.put(("ai",f"GEMINI ({model})")); return r.text or "No response returned."
-            except Exception as e:return f"Both AI providers failed.\nGroq: {error}\nGemini: {e}"
-        self.events.put(("ai","OFFLINE"))
-        return "AI isn't configured. Add GROQ_API_KEY or GEMINI_API_KEY to .env.\nGroq status: "+error
+        """Query Groq first, automatically migrate retired model IDs, then use Gemini."""
+        try:
+            answer, provider = generate_response(prompt)
+            self.events.put(("ai", provider))
+            return answer
+        except Exception as exc:
+            self.events.put(("ai", "OFFLINE"))
+            return str(exc)
+
     def poll(self):
         try:
             while True:
