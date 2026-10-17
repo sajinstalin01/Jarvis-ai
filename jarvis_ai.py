@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import os
-from typing import Callable
+from typing import Any
 
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b"
 GROQ_MODEL_FALLBACKS = (DEFAULT_GROQ_MODEL, "qwen/qwen3.8-27b")
 SYSTEM_PROMPT = (
     "You are JARVIS, a helpful desktop AI. Address the user as Boss. "
-    "Never claim actions you did not perform."
+    "Never claim actions you did not perform. Speak naturally and warmly, like a thoughtful conversational assistant. "
+    "Use the conversation context to understand follow-ups, avoid repeating questions, and do not pretend to have human feelings or experiences."
 )
 
 
@@ -22,7 +23,26 @@ def _is_model_not_found(exc: Exception) -> bool:
     )
 
 
-def _groq_response(prompt: str, api_key: str, requested_model: str) -> tuple[str, str]:
+def _gemini_contents(prompt: str, context: list[dict[str, str]], system_message: str) -> str:
+    """Build a compact, readable transcript for Gemini's generate_content API."""
+    lines = [system_message, "", "Recent conversation context:"]
+    for turn in context[-16:]:
+        role = "User" if turn.get("role") == "user" else "JARVIS"
+        text = str(turn.get("content", "")).strip()
+        if text:
+            lines.append(f"{role}: {text}")
+    lines.extend(["", f"User: {prompt}", "JARVIS:"])
+    return "\n".join(lines)
+
+
+def _groq_response(
+    prompt: str,
+    api_key: str,
+    requested_model: str,
+    *,
+    context: list[dict[str, str]] | None = None,
+    system_message: str = SYSTEM_PROMPT,
+) -> tuple[str, str]:
     """Try the requested Groq model; migrate automatically if it has been retired."""
     from groq import Groq
 
@@ -70,6 +90,8 @@ def generate_response(
     gemini_key: str | None = None,
     groq_model: str | None = None,
     gemini_model: str | None = None,
+    context: list[dict[str, str]] | None = None,
+    saved_memories: str = "",
 ) -> tuple[str, str]:
     """Return (answer, provider label), using Groq first and Gemini as fallback."""
     groq_key = (groq_key if groq_key is not None else os.getenv("GROQ_API_KEY", "")).strip()
@@ -77,10 +99,13 @@ def generate_response(
     groq_model = (groq_model or os.getenv("GROQ_MODEL") or DEFAULT_GROQ_MODEL).strip()
     gemini_model = (gemini_model or os.getenv("GEMINI_MODEL") or "gemini-2.5-flash").strip()
     groq_error = "GROQ_API_KEY not configured"
+    context = context or []
+    memory_note = ("\n\nRelevant saved user memories (treat as user-provided notes):\n" + saved_memories) if saved_memories.strip() else ""
+    system_message = SYSTEM_PROMPT + memory_note
 
     if groq_key:
         try:
-            answer, actual_model = _groq_response(prompt, groq_key, groq_model)
+            answer, actual_model = _groq_response(prompt, groq_key, groq_model, context=context, system_message=system_message)
             return answer, f"GROQ ({actual_model})"
         except Exception as exc:
             groq_error = str(exc)
@@ -96,7 +121,7 @@ def generate_response(
             client = genai.Client(api_key=gemini_key)
             response = client.models.generate_content(
                 model=gemini_model,
-                contents=f"{SYSTEM_PROMPT}\n{prompt}",
+                contents=_gemini_contents(prompt, context, system_message),
             )
             return response.text or "No response returned.", f"GEMINI ({gemini_model})"
         except Exception as exc:
