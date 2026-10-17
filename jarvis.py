@@ -5,6 +5,8 @@ from pathlib import Path
 from tkinter import messagebox
 from jarvis_services import JarvisStore, system_metrics, developer_diagnostics, parse_reminder_command
 from jarvis_ai import generate_response
+from jarvis_control import lock_screen, take_screenshot, toggle_mute
+from jarvis_remote import JarvisRemoteServer
 try:
     import customtkinter as ctk
 except ImportError as exc:
@@ -215,6 +217,7 @@ class JarvisApp(ctk.CTk):
         self.events=queue.Queue(); self.busy=False; self.sound=True; self.sr=None; self.tts=None
         self.voice_chat_active=False; self.voice_chat_stop=threading.Event(); self.voice_chat_ready=threading.Event(); self.voice_chat_ready.set()
         self.store=JarvisStore()
+        self.remote=JarvisRemoteServer(self.remote_command, self.remote_status)
         self.wake_enabled=False; self.wake_stop=threading.Event(); self.wake_thread=None; self.voice_chat_thread=None
         try:
             import speech_recognition as sr
@@ -243,6 +246,7 @@ class JarvisApp(ctk.CTk):
             ("◉  Reminders",lambda:self.open_feature_window("reminders")),
             ("⌘  Workflows",lambda:self.open_feature_window("workflows")),
             ("</>  Developer Mode",lambda:self.open_feature_window("developer")),
+            ("◎  Remote Control",self.remote_control_setup),
             ("◉  WhatsApp",lambda:self.launch_shortcut("WhatsApp")),
             ("⚙  Settings",self.show_settings)]:
             ctk.CTkButton(side,text=label,command=fn,anchor="w",height=42,corner_radius=10,fg_color="transparent",hover_color="#183248",text_color=TEXT).pack(fill="x",padx=12,pady=4)
@@ -301,11 +305,18 @@ class JarvisApp(ctk.CTk):
     def draw_reactor(self):
         import math
         c=self.reactor
-        c.create_oval(12,12,128,128,outline="#1E4054",width=2); c.create_oval(22,22,118,118,outline=CYAN,width=2)
-        c.create_oval(32,32,108,108,outline="#2B9A9A",width=1); c.create_oval(43,43,97,97,fill="#103044",outline=CYAN,width=2)
-        c.create_oval(52,52,88,88,fill="#3AAFA9",outline=CYAN,width=2); c.create_oval(62,62,78,78,fill=TEXT,outline="")
-        for a in range(0,360,45):
-            c.create_line(70+48*math.cos(math.radians(a)),70+48*math.sin(math.radians(a)),70+56*math.cos(math.radians(a)),70+56*math.sin(math.radians(a)),fill=CYAN,width=2)
+        c.create_oval(12,12,128,128,outline="#1E4054",width=2)
+        c.create_oval(22,22,118,118,outline=CYAN,width=2)
+        c.create_oval(32,32,108,108,outline="#2B9A9A",width=1)
+        c.create_oval(43,43,97,97,fill="#103044",outline=CYAN,width=2)
+        c.create_oval(52,52,88,88,fill="#3AAFA9",outline=CYAN,width=2)
+        c.create_oval(62,62,78,78,fill=TEXT,outline="")
+        for a in range(0,360,30):
+            x1,y1=70+48*math.cos(math.radians(a)),70+48*math.sin(math.radians(a))
+            x2,y2=70+56*math.cos(math.radians(a)),70+56*math.sin(math.radians(a))
+            c.create_line(x1,y1,x2,y2,fill=CYAN if a%60==0 else "#356277",width=2)
+        self.reactor_arc=c.create_arc(15,15,125,125,start=0,extent=72,style="arc",outline=GOLD,width=3)
+        self.reactor_tick=0
     def splash(self):
         self.overlay=ctk.CTkFrame(self,fg_color="#050D17",corner_radius=0); self.overlay.place(relx=0,rely=0,relwidth=1,relheight=1)
         ctk.CTkLabel(self.overlay,text="J.A.R.V.I.S.",font=ctk.CTkFont(size=44,weight="bold"),text_color=CYAN).place(relx=.5,rely=.38,anchor="center")
@@ -318,9 +329,15 @@ class JarvisApp(ctk.CTk):
         else:self.after(350,self.overlay.destroy)
     def animate(self):
         if not self.winfo_exists(): return
-        try:self.reactor.itemconfigure(4,outline=CYAN if int(datetime.datetime.now().timestamp()*2)%2 else "#0A526D")
-        except Exception:pass
-        self.after(400,self.animate)
+        try:
+            self.reactor_tick=(self.reactor_tick+12)%360
+            self.reactor.itemconfigure(self.reactor_arc,start=self.reactor_tick)
+            pulse=CYAN if (self.reactor_tick//24)%2==0 else "#357D91"
+            self.reactor.itemconfigure(5,outline=pulse)
+            self.reactor.itemconfigure(6,fill="#3AAFA9" if pulse==CYAN else "#176176")
+        except Exception:
+            pass
+        self.after(90,self.animate)
     def clock_tick(self):
         now=datetime.datetime.now(); self.clock.configure(text=now.strftime("%H:%M:%S")); self.date.configure(text=now.strftime("%a, %d %b %Y")); self.after(1000,self.clock_tick)
     def add(self,who,msg):
@@ -437,11 +454,29 @@ class JarvisApp(ctk.CTk):
         self.events.put(("answer",answer))
     def command(self,text):
         p=text.strip().lower()
+        if p in ("pc status", "computer status", "pc monitor"):
+            return self.remote_status_text()
+        if p in ("pc lock", "lock pc", "lock screen", "lock computer"):
+            ok, result = lock_screen()
+            return result
+        if p in ("pc mute", "mute computer", "toggle mute", "mute volume"):
+            ok, result = toggle_mute()
+            return result
+        if p in ("pc screenshot", "take screenshot", "screenshot"):
+            ok, result = take_screenshot()
+            return result
+        if p in ("pc shutdown", "shutdown pc", "shut down computer", "pc restart", "restart pc", "restart computer"):
+            action = "restart" if "restart" in p else "shutdown"
+            self.events.put(("pc_confirm", action))
+            return f"Please confirm the {action} request in the JARVIS desktop window. If approved, Windows schedules it in 10 seconds."
         if p in ("help","commands","what can you do"):
             return """Commands:
 • help, time, date, system info
 • calculate <math expression>; search <query>; open YouTube/Google/GitHub/Gmail/Wikipedia
 • launch <app name>; launch chrome search git
+• pc status, pc lock, pc mute, pc screenshot
+• pc shutdown / pc restart (requires desktop confirmation)
+• ◎ Remote Control: start/stop an authenticated allow-listed API
 • remember <text>, memories [search], forget memory <id>, history [search]
 • remind me in 10 minutes to <task>; remind me daily/weekly to <task>; reminders; delete reminder <id>
 • workflow save <name>: launch chrome; open github; workflow list/run/delete <name>
@@ -600,6 +635,20 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
                     status.configure(text=f"● {label}: {text_state}",text_color=color)
                     if state in ("INVALID","ERROR"):
                         self.add("SYSTEM",f"{label.title()} provider check: {text_state}. Check local settings or network; the API key is never shown.")
+                elif kind=="pc_confirm":
+                    action=msg
+                    approved=messagebox.askyesno("Confirm PC control",f"Schedule Windows {action} in 10 seconds?\n\nSave your work first. You can cancel using 'shutdown /a' in Windows.")
+                    if approved and platform.system()=="Windows":
+                        try:
+                            args=["shutdown.exe","/r" if action=="restart" else "/s","/t","10"]
+                            subprocess.Popen(args,shell=False)
+                            self.add("SYSTEM",f"Windows {action} scheduled in 10 seconds. Run 'shutdown /a' to cancel.")
+                        except Exception as exc:
+                            self.add("SYSTEM",f"Could not schedule {action}: {exc}")
+                    elif approved:
+                        self.add("SYSTEM","Shutdown/restart scheduling is only implemented on Windows.")
+                    else:
+                        self.add("SYSTEM",f"{action.title()} cancelled.")
                 elif kind=="workflow_confirmation":
                     workflow=msg
                     approved=messagebox.askyesno("Confirm JARVIS workflow",f"Run workflow '{workflow['name']}'?\n\n"+ "\n".join(workflow["steps"]) + "\n\nOnly run workflows you recognize.")
@@ -868,6 +917,59 @@ API keys stay in your local .env. Wake-word recognition uses the configured spee
         self.core.configure(text="● OPERATIONAL",text_color=GREEN)
         configured=bool(os.getenv("GROQ_API_KEY") or os.getenv("GEMINI_API_KEY"))
         self.ai_status.configure(text="● AI: KEY CONFIGURED" if configured else "● AI: NOT CONFIGURED",text_color=GREEN if configured else MUTED)
+    def remote_status(self):
+        data=system_metrics()
+        return {key:data.get(key) for key in ("host","platform","cpu_percent","memory_percent","memory_used_gb","disk_percent","battery_percent") if key in data}
+
+    def remote_status_text(self):
+        data=self.remote_status()
+        return "\n".join(f"{key.replace('_',' ').title()}: {value}" for key,value in data.items())
+
+    def remote_command(self, command):
+        normalized=command.strip().lower()
+        # The remote API is intentionally narrower than local desktop commands.
+        if normalized in ("pc lock","lock screen"):
+            return lock_screen()[1]
+        if normalized.startswith("launch "):
+            app=normalized[7:].strip()
+            ok,message=launch_app(app)
+            return message
+        return "Remote command rejected."
+
+    def remote_control_setup(self):
+        if self.remote.running:
+            self.remote.stop()
+            self.add("REMOTE","Remote control server stopped; its access token has been discarded.")
+            return
+        allow_lan=messagebox.askyesno(
+            "JARVIS Remote Control",
+            "Enable access from another device on your local network?\n\n"
+            "YES = bind to the LAN (trusted network only). The API uses a strong token but plain HTTP, not encryption; do not use on public/untrusted Wi-Fi or expose the port to the internet.\n\n"
+            "NO = this computer only (127.0.0.1)."
+        )
+        try:
+            token=self.remote.start(allow_lan=allow_lan)
+            host=self.remote.host
+            if allow_lan:
+                try:
+                    lan_ip=socket.gethostbyname(socket.gethostname())
+                except OSError:
+                    lan_ip="<this-PC-IP>"
+                endpoint=f"http://{lan_ip}:{self.remote.port}"
+            else:
+                endpoint=f"http://127.0.0.1:{self.remote.port}"
+            self.add("REMOTE",f"Remote API started at {endpoint}. Token created in memory; only allow-listed commands are accepted.")
+            messagebox.showinfo(
+                "JARVIS Remote API Ready",
+                f"Base URL: {endpoint}\n\nBearer token (copy now; it is shown only once):\n{token}\n\n"
+                "Authenticated endpoints:\nGET /api/status\nPOST /api/command with JSON {\"command\":\"launch notepad\"}\n"
+                "Allowed remote actions: status, launch <app>, lock screen. Arbitrary shell, power controls and file access are blocked.\n\n"
+                "Stop the server using the same sidebar button."
+            )
+        except Exception as exc:
+            self.add("REMOTE",f"Could not start remote control: {exc}")
+            messagebox.showerror("Remote Control Error",str(exc))
+
     def open_url(self,url):
         webbrowser.open(url); self.add("J.A.R.V.I.S.",f"Opening {url}")
     def launch_shortcut(self, name):
