@@ -35,7 +35,7 @@ def _start_menu_shortcuts():
         return {}
     roots = [
         Path(os.getenv("APPDATA", "")) / "Microsoft/Windows/Start Menu/Programs",
-        Path(os.getenv("PROGRAMDATA", r"C:\\ProgramData")) / "Microsoft/Windows/Start Menu/Programs",
+        Path(os.getenv("PROGRAMDATA", r"C:\ProgramData")) / "Microsoft/Windows/Start Menu/Programs",
     ]
     index = {}
     for root in roots:
