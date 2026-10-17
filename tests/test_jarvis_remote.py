@@ -1,6 +1,5 @@
 import json
-import threading
-import time
+import socket
 import unittest
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
@@ -15,8 +14,10 @@ class JarvisRemoteTests(unittest.TestCase):
             lambda command: self.commands.append(command) or "accepted",
             lambda: {"cpu": 10, "host": "test"},
         )
-        self.token = self.remote.start(port=0)
-        # ThreadingHTTPServer port=0 chooses a free port; read the bound port.
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        self.token = self.remote.start(port=port)
         self.port = self.remote.server.server_address[1]
         self.base = f"http://127.0.0.1:{self.port}"
 
