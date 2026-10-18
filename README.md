@@ -62,7 +62,7 @@ JARVIS has a local permission manager for supported desktop actions. Run `permis
 - `grant permission read apps` permits reading registered display names only; it does **not** read private chats or app data.
 - `grant permission launch apps` and `revoke permission launch apps` control JARVIS app launching.
 - `grant permission type text` enables literal foreground typing. Every type action shows a confirmation, minimizes JARVIS, gives you 5 seconds to select the intended app and text field, then types plain text. It does not press Enter, click buttons, or send anything.
-- `draft message on whatsapp: Hello` or `draft message on telegram: Hello` opens a message-share/draft link after confirmation. You choose the recipient, review the content, and tap Send yourself.
+- `draft message on whatsapp: Hello` or `draft message on telegram: Hello` opens a message-share/draft link after confirmation. The text is part of the URL and may remain in browser history. You choose the recipient, review the content, and tap Send yourself.
 - `prepare call on whatsapp` or `prepare call on telegram` opens that app after confirmation; you choose the contact and start the call manually.
 - `grant permission send message`, `grant permission call`, or `grant permission all` enables the relevant JARVIS-side capability after a confirmation dialog. Use `revoke permission <capability>` to turn one off, or `revoke permission all` to disable all app-control capabilities.
 
