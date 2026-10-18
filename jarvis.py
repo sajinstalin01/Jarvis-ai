@@ -48,7 +48,7 @@ except Exception:
 
 try:
     from PyQt6.QtCore import QObject, Qt, pyqtSignal
-from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QApplication
 except ImportError as exc:
     raise SystemExit("PyQt6 is required for the new JARVIS HUD. Run: python -m pip install -r requirements.txt") from exc
 
