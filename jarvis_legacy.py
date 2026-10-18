@@ -75,7 +75,7 @@ def _start_apps_index():
         )
         if result.returncode != 0 or not result.stdout.strip():
             return []
-        payload = json.loads(result.stdout.lstrip("\\ufeff"))
+        payload = json.loads(result.stdout.lstrip(chr(0xfeff)))
         rows = payload if isinstance(payload, list) else [payload]
         found = []
         seen = set()
