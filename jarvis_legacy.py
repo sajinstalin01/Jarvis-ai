@@ -124,67 +124,177 @@ APP_ALIASES = {
     "handbrake": ("HandBrake.exe", "HandBrake"), "davinci resolve": ("Resolve.exe",),
     "figma": ("Figma.exe", "figma"),
 }
+def _normalize_app_name(value):
+    """Normalize names so 'VS Code', 'vs-code', and 'VSCode' match."""
+    return "".join(ch for ch in str(value).casefold() if ch.isalnum())
+
+
+def _find_installed_shortcut(name, candidates=()):
+    """Find an exact Start Menu shortcut, then a unique safe partial match."""
+    if platform.system() != "Windows":
+        return None
+    names = [name]
+    normalized = _normalize_app_name(name)
+    # Try human-friendly names derived from the allow-listed executable names.
+    for candidate in candidates:
+        stem = Path(str(candidate).replace("\\", "/")).stem
+        if stem and stem.casefold() not in {"exe", "msc", "cpl"}:
+            names.append(stem)
+    # Include aliases sharing one of the same known executable candidates.
+    candidate_set = {str(x).casefold() for x in candidates}
+    for alias, values in APP_ALIASES.items():
+        if candidate_set.intersection(str(x).casefold() for x in values):
+            names.append(alias)
+    index = _start_menu_shortcuts()
+    for item in names:
+        key = _normalize_app_name(item)
+        if key and key in index:
+            return index[key]
+    # Partial matching is allowed only when it identifies exactly one shortcut.
+    # This supports versioned shortcuts such as "Adobe Photoshop 2025".
+    if len(normalized) >= 4:
+        matches = {
+            path for label, path in index.items()
+            if normalized in label or label in normalized
+        }
+        if len(matches) == 1:
+            return next(iter(matches))
+    return None
+
+
 def launch_app(name, search_query=None):
-    """Launch an allow-listed desktop app; optionally search from a browser."""
-    key = name.strip().lower()
-    if key == "whatsapp":
+    """Launch an allow-listed app with robust Windows Start Menu fallbacks."""
+    requested = str(name or "").strip()
+    if not requested:
+        return False, "Enter an app name. Example: launch chrome"
+
+    key = requested.casefold().strip()
+    normalized_key = _normalize_app_name(requested)
+    if normalized_key == "whatsapp":
         key = "whatsapp desktop"
+
+    # Keep aliases allow-listed while accepting punctuation/capitalization variants.
     candidates = APP_ALIASES.get(key)
-    if not candidates and platform.system() == "Windows":
-        shortcut = find_start_menu_shortcut(name.strip())
+    if not candidates:
+        candidates = next(
+            (values for alias, values in APP_ALIASES.items()
+             if _normalize_app_name(alias) == normalized_key),
+            None,
+        )
+
+    search_url = (
+        "https://www.google.com/search?q=" + urllib.parse.quote(str(search_query).strip())
+        if search_query and str(search_query).strip() else None
+    )
+    browser_keys = {
+        "chrome", "googlechrome", "edge", "microsoftedge", "firefox",
+        "brave", "opera", "vivaldi", "arc",
+    }
+    if search_url and normalized_key not in browser_keys:
+        return False, "Search syntax is for browsers. Try: launch chrome search git"
+
+    if platform.system() == "Windows":
+        # Prefer the actual installed Start Menu shortcut for Store apps,
+        # versioned applications, and apps whose executable is not on PATH.
+        shortcut = _find_installed_shortcut(requested, candidates or ())
+        if shortcut:
+            try:
+                os.startfile(str(shortcut))
+                if search_url:
+                    # Open the search separately; this works for both classic and Store browsers.
+                    webbrowser.open(search_url)
+                return True, f"Launching installed app '{shortcut.stem}'." + (
+                    f" Searching for '{search_query}'." if search_url else ""
+                )
+            except OSError as exc:
+                shortcut_error = str(exc)
+            else:
+                shortcut_error = ""
+        else:
+            shortcut_error = ""
+
+        if candidates:
+            for candidate in candidates:
+                expanded = os.path.expandvars(str(candidate))
+                try:
+                    if expanded.endswith(":") or expanded.endswith("://"):
+                        os.startfile(expanded)
+                        return True, f"Opening {requested}."
+                    if expanded.lower().endswith(".msc"):
+                        if os.path.isfile(expanded):
+                            os.startfile(expanded)
+                        else:
+                            subprocess.Popen(["mmc.exe", expanded], shell=False)
+                        return True, f"Opening {requested}."
+                    if expanded.lower().endswith(".cpl"):
+                        subprocess.Popen(["control.exe", expanded], shell=False)
+                        return True, f"Opening {requested}."
+                    resolved = expanded if os.path.isfile(expanded) else shutil.which(expanded)
+                    if resolved:
+                        args = [resolved]
+                        if search_url:
+                            args.append(search_url)
+                        subprocess.Popen(args, shell=False)
+                        return True, (
+                            f"Launching {requested} and searching for '{search_query}'."
+                            if search_url else f"Launching {requested}."
+                        )
+                except (OSError, subprocess.SubprocessError) as exc:
+                    shortcut_error = str(exc)
+
+        # Try the Start Menu even when an alias exists but its executable name
+        # cannot be resolved. This is the common failure for packaged apps.
+        if not shortcut:
+            shortcut = _find_installed_shortcut(requested, candidates or ())
+            if shortcut:
+                try:
+                    os.startfile(str(shortcut))
+                    if search_url:
+                        webbrowser.open(search_url)
+                    return True, f"Launching installed app '{shortcut.stem}'."
+                except OSError as exc:
+                    shortcut_error = str(exc)
+
+        if candidates:
+            # Fixed allow-listed targets only; never pass arbitrary user commands.
+            target = str(candidates[0])
+            try:
+                if target.lower().endswith(".msc"):
+                    subprocess.Popen(["mmc.exe", target], shell=False)
+                elif target.lower().endswith(".cpl"):
+                    subprocess.Popen(["control.exe", target], shell=False)
+                else:
+                    args = ["cmd.exe", "/c", "start", "", target]
+                    if search_url:
+                        args.append(search_url)
+                    subprocess.Popen(args, shell=False)
+                return True, (
+                    f"Asked Windows to open {requested}. If it did not appear, check whether it is installed."
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                detail = f" {exc}"
+                if shortcut_error:
+                    detail += f" (Start Menu: {shortcut_error})"
+                return False, f"Couldn't launch {requested}.{detail}"
+
+        return False, (
+            f"'{requested}' was not found in JARVIS shortcuts or the Windows Start Menu. "
+            "Install it or add an alias."
+        )
+
+    # Non-Windows launchers use their platform-native application names.
+    if not candidates:
+        shortcut = find_start_menu_shortcut(requested)
         if shortcut:
             try:
                 os.startfile(str(shortcut))
                 return True, f"Launching installed app '{shortcut.stem}'."
-            except OSError as exc:
-                return False, f"Couldn't launch '{shortcut.stem}': {exc}"
-    if not candidates:
-        return False, f"'{name}' was not found in JARVIS shortcuts or the Windows Start Menu. Install it or add an alias."
-
-    search_url = (
-        "https://www.google.com/search?q=" + urllib.parse.quote(search_query)
-        if search_query else None
-    )
-    browser_keys = {
-        "chrome", "google chrome", "edge", "microsoft edge", "firefox",
-        "brave", "opera", "vivaldi", "arc"
-    }
-    if search_query and key not in browser_keys:
-        return False, "Search syntax is for browsers. Try: launch chrome search git"
+            except (AttributeError, OSError) as exc:
+                return False, f"Couldn't launch '{requested}': {exc}"
+        return False, f"'{requested}' is not in the supported app list."
 
     try:
-        if platform.system() == "Windows":
-            for candidate in candidates:
-                expanded = os.path.expandvars(candidate)
-                if expanded.endswith(":") or expanded.endswith("://"):
-                    os.startfile(expanded)
-                    return True, f"Opening {name}."
-                if os.path.isfile(expanded) or shutil.which(expanded):
-                    if expanded.lower().endswith((".msc", ".cpl")):
-                        os.startfile(expanded)
-                    else:
-                        args = [expanded]
-                        if search_url:
-                            args.append(search_url)
-                        subprocess.Popen(args, shell=False)
-                    return True, (
-                        f"Launching {name} and searching for '{search_query}'."
-                        if search_query else f"Launching {name}."
-                    )
-            # Keep the fallback limited to fixed, allow-listed executable names.
-            target = candidates[0]
-            args = ["cmd", "/c", "start", "", target]
-            if search_url:
-                args.append(search_url)
-            subprocess.Popen(args, shell=False)
-            return True, (
-                f"Asked Windows to launch {name} and search for '{search_query}'. "
-                "If it did not open, check that the app is installed."
-                if search_query else
-                f"Asked Windows to open {name}. If it did not appear, check whether it is installed."
-            )
-
-        if key == "settings":
+        if key == "settings" or normalized_key == "settings":
             if platform.system() == "Darwin":
                 subprocess.Popen(["open", "-a", "System Settings"])
             else:
@@ -201,7 +311,8 @@ def launch_app(name, search_query=None):
                 "discord": "Discord", "spotify": "Spotify", "vlc": "VLC",
                 "whatsapp desktop": "WhatsApp",
             }
-            command = ["open", "-a", aliases.get(key, target)]
+            normalized_aliases = {_normalize_app_name(k): v for k, v in aliases.items()}
+            command = ["open", "-a", normalized_aliases.get(normalized_key, target)]
             if search_url:
                 command.extend(["--args", search_url])
             subprocess.Popen(command)
@@ -212,21 +323,22 @@ def launch_app(name, search_query=None):
                 "terminal": "x-terminal-emulator", "chrome": "google-chrome",
                 "edge": "microsoft-edge", "whatsapp desktop": "whatsapp-for-linux",
             }
-            cmd = aliases.get(key, target)
+            normalized_aliases = {_normalize_app_name(k): v for k, v in aliases.items()}
+            cmd = normalized_aliases.get(normalized_key, target)
             if not shutil.which(cmd):
                 return False, f"{cmd} was not found. Install it or update the app alias."
             args = [cmd]
-            if key == "file explorer":
+            if normalized_key == "fileexplorer":
                 args.append(str(Path.home()))
             elif search_url:
                 args.append(search_url)
             subprocess.Popen(args)
         return True, (
-            f"Launching {name} and searching for '{search_query}'."
-            if search_query else f"Launching {name}."
+            f"Launching {requested} and searching for '{search_query}'."
+            if search_url else f"Launching {requested}."
         )
-    except Exception as exc:
-        return False, f"Couldn't launch {name}: {exc}"
+    except (OSError, subprocess.SubprocessError, ValueError) as exc:
+        return False, f"Couldn't launch {requested}: {exc}"
 
 def web_search(query):
     query = query.strip()
