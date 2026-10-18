@@ -226,7 +226,8 @@ def type_text_into_foreground_window(value: str) -> tuple[bool, str]:
         title_buffer = ctypes.create_unicode_buffer(length + 1)
         user32.GetWindowTextW(hwnd, title_buffer, length + 1)
         title = title_buffer.value.strip()
-        if not title or "jarvis" in title.casefold():
+        normalized_title = "".join(ch for ch in title.casefold() if ch.isalnum())
+        if not title or normalized_title.startswith("jarvismarklvi") or normalized_title in {"jarvis", "jarvisassistant"}:
             return False, "JARVIS is still active or the target window could not be verified; nothing was typed."
 
         payload = value.encode("utf-16-le")
