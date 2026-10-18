@@ -52,6 +52,8 @@ except ImportError as exc:
     raise SystemExit("PyQt6 is required for the new JARVIS HUD. Run: python -m pip install -r requirements.txt") from exc
 
 from ui import JarvisUI
+import ui as _ui_module
+from ui_theme import apply_realistic_theme, polish_window
 from jarvis_ai import generate_response
 from jarvis_control import lock_screen, take_screenshot, toggle_mute
 from jarvis_remote import JarvisRemoteServer
@@ -331,7 +333,9 @@ class JarvisBridge:
 def main():
     app = QApplication.instance() or QApplication([])
     app.setApplicationName("J.A.R.V.I.S.")
+    apply_realistic_theme(_ui_module, app)  # palette is applied before widget styles are built
     ui = JarvisUI(str(ROOT / "assets" / "face.png"))
+    polish_window(ui._win)
     bridge = JarvisBridge(ui)
     # Keep references alive for Qt's lifetime and clean up the local API.
     ui._bridge = bridge
