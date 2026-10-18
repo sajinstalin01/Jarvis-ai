@@ -51,9 +51,8 @@ try:
 except ImportError as exc:
     raise SystemExit("PyQt6 is required for the new JARVIS HUD. Run: python -m pip install -r requirements.txt") from exc
 
-from ui import JarvisUI
 import ui as _ui_module
-from ui_theme import apply_realistic_theme, polish_window
+from ui import JarvisUI, apply_realistic_theme, polish_window
 from font_manager import (get_font_settings, install_font_menu, load_custom_fonts)
 from open_command import parse_open_payload, safe_website_url
 from jarvis_ai import generate_response
