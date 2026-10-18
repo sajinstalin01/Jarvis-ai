@@ -209,7 +209,7 @@ def apply_font_preferences(app, window, family: str) -> None:
     family = str(family or _DEFAULT_FAMILY).strip() or _DEFAULT_FAMILY
     app.setFont(QFont(family, 9))
     try:
-        from ui_theme import polish_window
+        from ui import polish_window
         polish_window(window, font_family=family)
     except Exception:
         pass
