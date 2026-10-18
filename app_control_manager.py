@@ -172,16 +172,18 @@ class AppControlManager:
             detail = (
                 f"Open a {app.title()} share/draft link with this message?\n\n"
                 f"{message_text[:1200]}\n\n"
-                "JARVIS will not select a recipient or press Send. Review the recipient and message in the app, then send manually."
+                "The message text is included in the share URL and may appear in browser history. JARVIS will not select a recipient or press Send. Review the recipient and message in the app, then send manually."
             )
             if not self._confirm("Prepare message draft", detail):
                 return "Message draft cancelled."
             encoded = urllib.parse.quote(message_text, safe="")
             url = f"https://wa.me/?text={encoded}" if app.casefold() == "whatsapp" else f"https://t.me/share/url?url=&text={encoded}"
             try:
-                webbrowser.open(url)
+                opened = webbrowser.open(url, new=2)
             except Exception as exc:
                 return f"Could not open the {app.title()} draft link: {exc}"
+            if not opened:
+                return f"The default browser did not confirm opening the {app.title()} draft link. No message was sent."
             return f"Opened a {app.title()} message draft/share link. No message was sent; choose the recipient and send manually."
 
         call_match = re.fullmatch(r"(?:prepare\s+)?call\s+(?:on|in|via|with|using)\s+(whatsapp|telegram)", raw, flags=re.I)
