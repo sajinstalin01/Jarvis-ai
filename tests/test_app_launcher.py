@@ -112,7 +112,7 @@ class AppLauncherRegressionTests(unittest.TestCase):
             ok, message = launch_app("Telegram")
         self.assertTrue(ok, message)
         popen.assert_called_once_with(
-            ["explorer.exe", "shell:AppsFolder\\\\Telegram.Package!App"],
+            ["explorer.exe", r"shell:AppsFolder\Telegram.Package!App"],
             shell=False,
         )
 
