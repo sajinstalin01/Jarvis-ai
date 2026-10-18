@@ -11,12 +11,21 @@ import shutil
 from pathlib import Path
 from typing import Iterable
 
-from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QFont, QFontDatabase
-from PyQt6.QtWidgets import (
-    QComboBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QListWidget,
-    QListWidgetItem, QMessageBox, QPushButton, QVBoxLayout,
-)
+try:
+    from PyQt6.QtCore import Qt, QUrl
+    from PyQt6.QtGui import QDesktopServices, QFont, QFontDatabase
+    from PyQt6.QtWidgets import (
+        QComboBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QListWidget,
+        QListWidgetItem, QMessageBox, QPushButton, QVBoxLayout,
+    )
+    QT_AVAILABLE = True
+except ImportError:  # Allow lightweight settings/validation tests on non-GUI runners.
+    QT_AVAILABLE = False
+    Qt = QUrl = QDesktopServices = QFont = QFontDatabase = None
+    QComboBox = QFileDialog = QHBoxLayout = QLabel = QListWidget = None
+    QListWidgetItem = QMessageBox = QPushButton = QVBoxLayout = None
+    class QDialog:  # type: ignore[no-redef]
+        pass
 
 ROOT = Path(__file__).resolve().parent
 CUSTOM_FONT_DIR = ROOT / "custom_fonts"
@@ -44,6 +53,8 @@ def get_font_settings() -> dict:
     stored = _load_settings()
     family = str(stored.get("font_family") or _DEFAULT_FAMILY).strip() or _DEFAULT_FAMILY
     try:
+        if not QT_AVAILABLE:
+            return {"font_family": family}
         families = set(available_font_families())
         if family not in families:
             system_family = QFontDatabase.systemFont(
@@ -75,6 +86,8 @@ def register_font_file(path: str | Path) -> tuple[str, ...]:
     file_path = Path(path).resolve()
     if file_path.suffix.lower() not in SUPPORTED_FONT_EXTENSIONS:
         raise ValueError("Use a .ttf, .otf, or .ttc font file.")
+    if not QT_AVAILABLE:
+        raise RuntimeError("PyQt6 is required to register fonts; install requirements.txt first.")
     if not file_path.is_file():
         raise FileNotFoundError(f"Font file not found: {file_path}")
     if file_path.stat().st_size > MAX_FONT_FILE_BYTES:
@@ -98,6 +111,8 @@ def register_font_file(path: str | Path) -> tuple[str, ...]:
 
 def load_custom_fonts() -> list[str]:
     """Load fonts already stored in the user's custom_fonts folder."""
+    if not QT_AVAILABLE:
+        return []
     try:
         folder = ensure_custom_font_dir()
     except OSError:
@@ -114,6 +129,8 @@ def load_custom_fonts() -> list[str]:
 
 
 def available_font_families() -> list[str]:
+    if not QT_AVAILABLE:
+        return []
     return sorted({str(name) for name in QFontDatabase().families()}, key=str.casefold)
 
 
@@ -180,13 +197,15 @@ def remove_custom_font(path: str | Path) -> None:
     if file_path.suffix.lower() not in SUPPORTED_FONT_EXTENSIONS:
         raise ValueError("That is not a supported custom font file.")
     registration = _REGISTRATIONS.pop(str(file_path), None)
-    if registration:
+    if registration and QT_AVAILABLE:
         QFontDatabase.removeApplicationFont(registration[0])
     file_path.unlink(missing_ok=True)
 
 
 def apply_font_preferences(app, window, family: str) -> None:
     """Apply the chosen family to ordinary widgets; keep diagnostic text mono."""
+    if not QT_AVAILABLE:
+        return
     family = str(family or _DEFAULT_FAMILY).strip() or _DEFAULT_FAMILY
     app.setFont(QFont(family, 9))
     try:
