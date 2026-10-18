@@ -55,6 +55,7 @@ import ui as _ui_module
 from ui import JarvisUI, apply_realistic_theme, polish_window
 from font_manager import (get_font_settings, install_font_menu, load_custom_fonts)
 from open_command import parse_open_payload, safe_website_url
+from app_control_manager import AppControlManager
 from jarvis_ai import generate_response
 from jarvis_control import lock_screen, take_screenshot, toggle_mute
 from jarvis_remote import JarvisRemoteServer
@@ -86,6 +87,7 @@ class JarvisBridge:
     def __init__(self, ui: JarvisUI):
         self.ui = ui
         self.store = JarvisStore()
+        self.app_control = AppControlManager(ui)
         self._voice = VoiceController(self._voice_result, self._voice_status)
         self._voice_lock = threading.Lock()
         self.remote = JarvisRemoteServer(self._remote_command, self._remote_status)
@@ -149,6 +151,8 @@ class JarvisBridge:
         if normalized in ("lock", "lock screen", "pc lock"):
             return lock_screen()[1]
         if normalized.startswith("launch ") and launch_app:
+            if not self.app_control.permissions.has("app_launch"):
+                return "App-launch permission is disabled."
             ok, msg = launch_app(normalized[7:].strip())
             return msg
         return "Remote command rejected."
@@ -194,6 +198,9 @@ class JarvisBridge:
     def _local_command(self, text):
         raw = text.strip()
         p = raw.casefold()
+        app_control_response = self.app_control.handle_command(raw)
+        if app_control_response is not None:
+            return app_control_response
         if p in {"help", "commands", "what can you do"}:
             return ("Available commands:\n"
                     "• launch <app> [search <query>]\n"
@@ -275,6 +282,8 @@ class JarvisBridge:
                 output.append(self._local_command(step) or "Done.")
             return "\n".join(output)
         if p.startswith("launch "):
+            if not self.app_control.permissions.has("app_launch"):
+                return "App-launch permission is disabled. Use 'grant permission launch apps' to enable it."
             if not launch_app: return "App launching helper is unavailable."
             tail = raw[7:].strip()
             m = re.fullmatch(r"(.+?)\s+search\s+(.+)", tail, flags=re.I)
@@ -291,6 +300,8 @@ class JarvisBridge:
                 webbrowser.open(site_url)
                 return f"Opening {target}" + (f" and searching for '{query}'." if query else ".")
 
+            if not self.app_control.permissions.has("app_launch"):
+                return "App-launch permission is disabled. Use 'grant permission launch apps' to enable it."
             if target.casefold() in {"settings", "system settings", "windows settings"}:
                 if launch_app:
                     ok, message = launch_app("settings")
