@@ -54,6 +54,8 @@ except ImportError as exc:
 from ui import JarvisUI
 import ui as _ui_module
 from ui_theme import apply_realistic_theme, polish_window
+from font_manager import (get_font_settings, install_font_menu, load_custom_fonts)
+from open_command import parse_open_payload, safe_website_url
 from jarvis_ai import generate_response
 from jarvis_control import lock_screen, take_screenshot, toggle_mute
 from jarvis_remote import JarvisRemoteServer
@@ -281,13 +283,30 @@ class JarvisBridge:
             ok, message = launch_app(app, search_query=query)
             return message
         if p.startswith("open "):
-            site = p[5:].strip()
-            if site in SAFE_WEBSITES:
-                webbrowser.open(SAFE_WEBSITES[site]); return f"Opening {site}."
-            if site in {"settings", "system settings"}:
+            target, query = parse_open_payload(raw[5:].strip())
+            if not target:
+                return "Use 'open <app or website>' or 'open <browser> search <query>'."
+
+            site_url = safe_website_url(target, query)
+            if site_url:
+                webbrowser.open(site_url)
+                return f"Opening {target}" + (f" and searching for '{query}'." if query else ".")
+
+            if target.casefold() in {"settings", "system settings", "windows settings"}:
                 if launch_app:
-                    return launch_app("settings")[1]
-            return f"Supported named sites: {', '.join(SAFE_WEBSITES)}. Use 'search <query>' for other destinations."
+                    ok, message = launch_app("settings")
+                    return message
+
+            if not launch_app:
+                return "The app launcher is unavailable. You can still use 'search <query>'."
+            ok, message = launch_app(target, search_query=query)
+            if ok:
+                return message
+            if query and "search syntax is for browsers" in message.casefold():
+                return (f"Couldn't search from '{target}'. {message} "
+                        "Use a browser name such as chrome, edge, firefox, or brave.")
+            return (f"Couldn't open '{target}'. {message}\n"
+                    f"Try 'launch {target}' or use 'search <query>' for a web search.")
         if p.startswith("search "):
             return web_search(raw[7:].strip()) if web_search else "Search helper unavailable."
         if p.startswith("calculate "):
@@ -333,9 +352,17 @@ class JarvisBridge:
 def main():
     app = QApplication.instance() or QApplication([])
     app.setApplicationName("J.A.R.V.I.S.")
-    apply_realistic_theme(_ui_module, app)  # palette is applied before widget styles are built
+    # Load user-owned fonts before any widgets are built. Missing fonts safely
+    # fall back to the system font without blocking startup.
+    load_custom_fonts()
+    font_family = get_font_settings()["font_family"]
+    apply_realistic_theme(_ui_module, app, font_family=font_family)
     ui = JarvisUI(str(ROOT / "assets" / "face.png"))
-    polish_window(ui._win)
+    polish_window(ui._win, font_family=font_family)
+    try:
+        install_font_menu(ui._win, app)
+    except Exception as exc:
+        print(f"[Fonts] Font menu unavailable: {exc}")
     bridge = JarvisBridge(ui)
     # Keep references alive for Qt's lifetime and clean up the local API.
     ui._bridge = bridge

@@ -5,6 +5,8 @@
 ## Features
 - Redesigned professional dark HUD: deep navy panels, restrained teal/blue accents, refined typography, consistent borders, a cleaner dashboard, animated reactor, loading splash, live clock/date, system telemetry, quick links and clear-chat button.
 - Realistic titanium-style visual refresh: softer blue-cyan highlights, warm amber state accents, deeper layered panels, cleaner Segoe UI controls, refined scrollbars/tooltips and preserved monospaced telemetry for a more believable JARVIS console.
+- **Font collection:** open **Appearance → Font collection…** to preview and select an interface font, import personal `.ttf`, `.otf`, or `.ttc` files, remove custom font files, and save your choice. Imported fonts are stored locally in `custom_fonts/`; `config/ui_settings.json` stores the selected font family. Custom font binaries and personal settings are excluded from Git.
+- **Improved open commands:** `open <app name>` now tries the safe app launcher and installed Start Menu shortcuts instead of only supporting websites. Examples: `open chrome`, `open android studio`, `open notepad`, `open word`, `open photoshop`, `open gmail`, `open google.com`, and `open chrome search android studio`. Named website searches work with `open google search <query>`, `open youtube search <query>`, and `open github search <query>`.
 - Animated HUD with a rotating/pulsing reactor, refined high-contrast panels, loading splash and live telemetry.
 - Sound toggle, optional spoken responses, push-to-talk and **continuous turn-by-turn Voice Chat** with microphone listening, AI responses and spoken replies. Voice Chat listens again after the response finishes; click the toggle to stop.
 - Groq AI with Gemini fallback using keys from local `.env`; requests include recent conversation turns and saved user memories to support natural follow-ups.
@@ -41,7 +43,7 @@ Linux/macOS: `bash run_linux_mac.sh`.
 ## Commands
 - `help`, `time`, `date`, `system info`
 - `pc status`, `pc lock`, `pc mute`, `pc screenshot`, `pc shutdown`, `pc restart`
-- `open <app name>` and `launch <app name>`; `open <website>`; `search <query>`
+- `open <app or website>` and `launch <app name>`; `open <site> search <query>`; `search <query>`
 - `calculate 12 * (8 + 2)`
 - `search Python speech recognition`
 - `open YouTube`, `open Google`, `open GitHub`, `open Gmail`, `open Wikipedia`
@@ -98,6 +100,9 @@ Keep the JSON valid and use doubled backslashes in Windows paths. If Git is not 
 
 ## Project files
 - `jarvis.py` — unified application, animated HUD, voice, AI, app launcher and local PC controls.
+- `font_manager.py` — user-owned font collection, import/remove, persistent choice and Appearance menu.
+- `open_command.py` — safe parser for named websites, website queries, and app-opening syntax.
+- `custom_fonts/` — local storage for imported TTF/OTF/TTC fonts; font binaries are git-ignored.
 - `jarvis_control.py` — small, explicit local PC-control actions.
 - `jarvis_remote.py` — authenticated allow-listed remote API.
 - `auto_update.py` — safe updater/watcher.
