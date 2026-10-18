@@ -123,6 +123,26 @@ APP_ALIASES = {
     "blender": ("blender.exe", "blender"), "audacity": ("audacity.exe", "audacity"),
     "handbrake": ("HandBrake.exe", "HandBrake"), "davinci resolve": ("Resolve.exe",),
     "figma": ("Figma.exe", "figma"),
+    # Additional productivity, AI and creative applications; installed Store apps
+    # still use the Start Menu shortcut fallback when the executable is unknown.
+    "word": ("WINWORD.EXE",), "microsoft word": ("WINWORD.EXE",),
+    "excel": ("EXCEL.EXE",), "microsoft excel": ("EXCEL.EXE",),
+    "powerpoint": ("POWERPNT.EXE",), "microsoft powerpoint": ("POWERPNT.EXE",),
+    "outlook": ("OUTLOOK.EXE",), "microsoft outlook": ("OUTLOOK.EXE",),
+    "onenote": ("ONENOTE.EXE",), "microsoft onenote": ("ONENOTE.EXE",),
+    "access": ("MSACCESS.EXE",), "microsoft access": ("MSACCESS.EXE",),
+    "acrobat": ("Acrobat.exe",), "adobe acrobat": ("Acrobat.exe",),
+    "illustrator": ("Illustrator.exe",), "adobe illustrator": ("Illustrator.exe",),
+    "lightroom": ("Lightroom.exe",), "adobe lightroom": ("Lightroom.exe",),
+    "indesign": ("InDesign.exe",), "adobe indesign": ("InDesign.exe",),
+    "creative cloud": ("Creative Cloud.exe",), "adobe creative cloud": ("Creative Cloud.exe",),
+    "chatgpt": ("ChatGPT.exe", "chatgpt"), "openai chatgpt": ("ChatGPT.exe", "chatgpt"),
+    "copilot": ("Copilot.exe", "copilot"), "microsoft copilot": ("Copilot.exe", "copilot"),
+    "capcut": ("CapCut.exe", "CapCut"),
+    "canva": ("Canva.exe", "Canva"),
+    "krita": ("krita.exe", "krita"), "inkscape": ("inkscape.exe", "inkscape"),
+    "shotcut": ("shotcut.exe", "shotcut"), "kdenlive": ("kdenlive.exe", "kdenlive"),
+    "bluestacks": ("HD-Player.exe", "BlueStacks"), "ldplayer": ("dnplayer.exe", "LDPlayer"),
 }
 def _normalize_app_name(value):
     """Normalize names so 'VS Code', 'vs-code', and 'VSCode' match."""
