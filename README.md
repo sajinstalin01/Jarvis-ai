@@ -4,6 +4,7 @@
 
 ## Features
 - Redesigned professional dark HUD: deep navy panels, restrained teal/blue accents, refined typography, consistent borders, a cleaner dashboard, animated reactor, loading splash, live clock/date, system telemetry, quick links and clear-chat button.
+- Realistic titanium-style visual refresh: softer blue-cyan highlights, warm amber state accents, deeper layered panels, cleaner Segoe UI controls, refined scrollbars/tooltips and preserved monospaced telemetry for a more believable JARVIS console.
 - Animated HUD with a rotating/pulsing reactor, refined high-contrast panels, loading splash and live telemetry.
 - Sound toggle, optional spoken responses, push-to-talk and **continuous turn-by-turn Voice Chat** with microphone listening, AI responses and spoken replies. Voice Chat listens again after the response finishes; click the toggle to stop.
 - Groq AI with Gemini fallback using keys from local `.env`; requests include recent conversation turns and saved user memories to support natural follow-ups.
