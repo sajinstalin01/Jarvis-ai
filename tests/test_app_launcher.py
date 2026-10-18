@@ -1,0 +1,85 @@
+"""Regression tests for the allow-listed desktop app launcher.
+
+Load only the launcher declarations from jarvis_legacy.py so these tests do not
+need to initialize the full Tkinter UI on CI.
+"""
+import ast
+import os
+import platform
+import shutil
+import subprocess
+import urllib.parse
+import webbrowser
+import unittest
+from functools import lru_cache
+from pathlib import Path
+from unittest import mock
+
+SOURCE = Path(__file__).resolve().parents[1] / "jarvis_legacy.py"
+_TREE = ast.parse(SOURCE.read_text(encoding="utf-8"))
+_WANTED = {
+    "_start_menu_shortcuts", "find_start_menu_shortcut", "APP_ALIASES",
+    "_normalize_app_name", "_find_installed_shortcut", "launch_app",
+}
+_NODES = [
+    node for node in _TREE.body
+    if isinstance(node, (ast.FunctionDef, ast.Assign))
+    and (
+        (isinstance(node, ast.FunctionDef) and node.name in _WANTED)
+        or (isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "APP_ALIASES"
+            for target in node.targets
+        ))
+    )
+]
+_NS = {
+    "os": os, "platform": platform, "shutil": shutil, "subprocess": subprocess,
+    "urllib": urllib, "webbrowser": webbrowser, "Path": Path, "lru_cache": lru_cache,
+}
+exec(compile(ast.Module(body=_NODES, type_ignores=[]), str(SOURCE), "exec"), _NS)
+
+
+class AppLauncherRegressionTests(unittest.TestCase):
+    def test_name_normalization_handles_spaces_and_punctuation(self):
+        normalize = _NS["_normalize_app_name"]
+        self.assertEqual(normalize("VS Code"), normalize("vs-code"))
+        self.assertEqual(normalize("Android Studio"), normalize("androidstudio"))
+
+    @mock.patch.dict(os.environ, {"APPDATA": r"C:\Users\Test\AppData\Roaming"})
+    def test_windows_start_menu_shortcut_used_for_alias_when_executable_not_on_path(self):
+        launch_app = _NS["launch_app"]
+        shortcut = Path("C:/FakeStartMenu/Visual Studio Code.lnk")
+        with mock.patch.object(platform, "system", return_value="Windows"), \
+             mock.patch.dict(_NS, {"_start_menu_shortcuts": lambda: {
+                 "visualstudiocode": shortcut, "vscode": shortcut,
+             }}), \
+             mock.patch.object(os, "startfile", create=True) as startfile, \
+             mock.patch.object(shutil, "which", return_value=None), \
+             mock.patch.object(subprocess, "Popen") as popen:
+            ok, message = launch_app("VS-Code")
+        self.assertTrue(ok, message)
+        startfile.assert_called_once_with(str(shortcut))
+        popen.assert_not_called()
+
+    def test_msc_alias_uses_mmc_without_shell(self):
+        launch_app = _NS["launch_app"]
+        with mock.patch.object(platform, "system", return_value="Windows"), \
+             mock.patch.dict(_NS, {"_find_installed_shortcut": lambda *args: None}), \
+             mock.patch.object(subprocess, "Popen") as popen:
+            ok, message = launch_app("Device Manager")
+        self.assertTrue(ok, message)
+        popen.assert_called_once_with(["mmc.exe", "devmgmt.msc"], shell=False)
+
+    def test_unknown_app_fails_without_executing_user_input(self):
+        launch_app = _NS["launch_app"]
+        with mock.patch.object(platform, "system", return_value="Windows"), \
+             mock.patch.dict(_NS, {"_find_installed_shortcut": lambda *args: None}), \
+             mock.patch.object(subprocess, "Popen") as popen:
+            ok, message = launch_app("totally-unknown-app")
+        self.assertFalse(ok)
+        self.assertIn("not found", message)
+        popen.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()
