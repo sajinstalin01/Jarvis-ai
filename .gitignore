@@ -17,3 +17,6 @@ memory/long_term.json
 /custom_fonts/*
 !/custom_fonts/.gitkeep
 !/custom_fonts/README.md
+
+# Local permission choices
+config/app_permissions.json

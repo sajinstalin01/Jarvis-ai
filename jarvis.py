@@ -47,6 +47,7 @@ except Exception:
     pass
 
 try:
+    from PyQt6.QtCore import QObject, Qt, pyqtSignal
     from PyQt6.QtWidgets import QApplication
 except ImportError as exc:
     raise SystemExit("PyQt6 is required for the new JARVIS HUD. Run: python -m pip install -r requirements.txt") from exc
@@ -55,6 +56,7 @@ import ui as _ui_module
 from ui import JarvisUI, apply_realistic_theme, polish_window
 from font_manager import (get_font_settings, install_font_menu, load_custom_fonts)
 from open_command import parse_open_payload, safe_website_url
+from app_control_manager import AppControlManager
 from jarvis_ai import generate_response
 from jarvis_control import lock_screen, take_screenshot, toggle_mute
 from jarvis_remote import JarvisRemoteServer
@@ -82,10 +84,25 @@ except Exception as exc:
     print(f"[JARVIS] Legacy launcher unavailable; using limited fallback: {exc}")
 
 
+
+class _VoiceCommandRelay(QObject):
+    """Queue voice-worker callbacks safely onto the Qt GUI thread."""
+    command_requested = pyqtSignal(str)
+    status_requested = pyqtSignal(str)
+
+
 class JarvisBridge:
     def __init__(self, ui: JarvisUI):
         self.ui = ui
         self.store = JarvisStore()
+        self.app_control = AppControlManager(ui)
+        self._voice_relay = _VoiceCommandRelay()
+        self._voice_relay.command_requested.connect(
+            self.handle_command, Qt.ConnectionType.QueuedConnection
+        )
+        self._voice_relay.status_requested.connect(
+            self._voice_status_on_ui, Qt.ConnectionType.QueuedConnection
+        )
         self._voice = VoiceController(self._voice_result, self._voice_status)
         self._voice_lock = threading.Lock()
         self.remote = JarvisRemoteServer(self._remote_command, self._remote_status)
@@ -107,11 +124,14 @@ class JarvisBridge:
             self.ui.write_log("SYS: Add GROQ_API_KEY or GEMINI_API_KEY to .env, or enter a Gemini key in setup.")
 
     def _voice_status(self, message):
+        self._voice_relay.status_requested.emit(str(message))
+
+    def _voice_status_on_ui(self, message):
         self.ui.write_log("VOICE: " + str(message))
 
     def _voice_result(self, text):
         if text:
-            self.handle_command(str(text))
+            self._voice_relay.command_requested.emit(str(text))
 
     def _ptt_enable(self, enabled):
         return "window" if enabled else ""
@@ -149,6 +169,8 @@ class JarvisBridge:
         if normalized in ("lock", "lock screen", "pc lock"):
             return lock_screen()[1]
         if normalized.startswith("launch ") and launch_app:
+            if not self.app_control.permissions.has("app_launch"):
+                return "App-launch permission is disabled."
             ok, msg = launch_app(normalized[7:].strip())
             return msg
         return "Remote command rejected."
@@ -194,9 +216,16 @@ class JarvisBridge:
     def _local_command(self, text):
         raw = text.strip()
         p = raw.casefold()
+        app_control_response = self.app_control.handle_command(raw)
+        if app_control_response is not None:
+            return app_control_response
         if p in {"help", "commands", "what can you do"}:
             return ("Available commands:\n"
-                    "• launch <app> [search <query>]\n"
+                    "• launch <app> [search <query>]; apps; apps search <name>; refresh apps\n"
+                    "• permissions; grant/revoke permission <read apps|launch apps|type text|send message|call|all>\n"
+                    "• type text <plain text> (permission + per-action confirmation)\n"
+                    "• draft message on <whatsapp|telegram>: <text> (draft only)\n"
+                    "• prepare call on <whatsapp|telegram> (opens app; you place call)\n"
                     "• open <google|youtube|github|gmail|wikipedia>\n"
                     "• search <query>; calculate <expression>\n"
                     "• pc status, pc lock, pc mute, pc screenshot\n"
@@ -275,6 +304,8 @@ class JarvisBridge:
                 output.append(self._local_command(step) or "Done.")
             return "\n".join(output)
         if p.startswith("launch "):
+            if not self.app_control.permissions.has("app_launch"):
+                return "App-launch permission is disabled. Use 'grant permission launch apps' to enable it."
             if not launch_app: return "App launching helper is unavailable."
             tail = raw[7:].strip()
             m = re.fullmatch(r"(.+?)\s+search\s+(.+)", tail, flags=re.I)
@@ -291,6 +322,8 @@ class JarvisBridge:
                 webbrowser.open(site_url)
                 return f"Opening {target}" + (f" and searching for '{query}'." if query else ".")
 
+            if not self.app_control.permissions.has("app_launch"):
+                return "App-launch permission is disabled. Use 'grant permission launch apps' to enable it."
             if target.casefold() in {"settings", "system settings", "windows settings"}:
                 if launch_app:
                     ok, message = launch_app("settings")
