@@ -42,8 +42,17 @@ def _load_settings() -> dict:
 
 def get_font_settings() -> dict:
     stored = _load_settings()
-    family = str(stored.get("font_family") or _DEFAULT_FAMILY).strip()
-    return {"font_family": family or _DEFAULT_FAMILY}
+    family = str(stored.get("font_family") or _DEFAULT_FAMILY).strip() or _DEFAULT_FAMILY
+    try:
+        families = set(available_font_families())
+        if family not in families:
+            system_family = QFontDatabase.systemFont(
+                QFontDatabase.SystemFont.GeneralFont
+            ).family()
+            family = system_family or _DEFAULT_FAMILY
+    except Exception:
+        family = family or _DEFAULT_FAMILY
+    return {"font_family": family}
 
 
 def save_font_settings(family: str) -> None:
