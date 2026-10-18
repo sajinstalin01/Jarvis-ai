@@ -133,7 +133,10 @@ class AppLauncherRegressionTests(unittest.TestCase):
     def test_msc_alias_uses_mmc_without_shell(self):
         launch_app = _NS["launch_app"]
         with mock.patch.object(platform, "system", return_value="Windows"), \
-             mock.patch.dict(_NS, {"_find_installed_shortcut": lambda *args: None}), \
+             mock.patch.dict(_NS, {
+                 "_find_installed_shortcut": lambda *args: None,
+                 "_find_store_app_id": lambda *args: None,
+             }), \
              mock.patch.object(subprocess, "Popen") as popen:
             ok, message = launch_app("Device Manager")
         self.assertTrue(ok, message)
@@ -142,7 +145,10 @@ class AppLauncherRegressionTests(unittest.TestCase):
     def test_unknown_app_fails_without_executing_user_input(self):
         launch_app = _NS["launch_app"]
         with mock.patch.object(platform, "system", return_value="Windows"), \
-             mock.patch.dict(_NS, {"_find_installed_shortcut": lambda *args: None}), \
+             mock.patch.dict(_NS, {
+                 "_find_installed_shortcut": lambda *args: None,
+                 "_find_store_app_id": lambda *args: None,
+             }), \
              mock.patch.object(subprocess, "Popen") as popen:
             ok, message = launch_app("totally-unknown-app")
         self.assertFalse(ok)
