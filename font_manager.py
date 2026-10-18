@@ -327,13 +327,23 @@ class FontManagerDialog(QDialog):
 
     def _refresh_files(self) -> None:
         self._files.clear()
-        for path in custom_font_files():
-            families = registered_families(path) or register_font_file(path)
-            item = QListWidgetItem(f"{', '.join(families) or path.stem}   —   {path.name}")
+        paths = custom_font_files()
+        invalid = 0
+        for path in paths:
+            try:
+                families = registered_families(path) or register_font_file(path)
+                label = ", ".join(families) if families else f"Could not load: {path.stem}"
+                if not families:
+                    invalid += 1
+            except (OSError, ValueError):
+                label = f"Could not load: {path.stem}"
+                invalid += 1
+            item = QListWidgetItem(f"{label}   —   {path.name}")
             item.setData(Qt.ItemDataRole.UserRole, str(path))
             self._files.addItem(item)
+        extra = f" {invalid} invalid file(s) ignored." if invalid else ""
         self._status.setText(
-            f"{len(custom_font_files())} custom file(s). Folder: {CUSTOM_FONT_DIR}"
+            f"{len(paths)} custom file(s). Folder: {CUSTOM_FONT_DIR}.{extra}"
         )
 
     def _import_font(self) -> None:
@@ -385,6 +395,11 @@ class FontManagerDialog(QDialog):
         current = self._family.currentText()
         if current in old_families:
             current = _DEFAULT_FAMILY
+            try:
+                save_font_settings(current)
+                apply_font_preferences(self._app, self._window, current)
+            except OSError:
+                pass
         load_custom_fonts()
         self._populate_families(current)
         self._refresh_files()
