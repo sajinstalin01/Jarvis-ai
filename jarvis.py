@@ -47,7 +47,8 @@ except Exception:
     pass
 
 try:
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtCore import QObject, Qt, pyqtSignal
+from PyQt6.QtWidgets import QApplication
 except ImportError as exc:
     raise SystemExit("PyQt6 is required for the new JARVIS HUD. Run: python -m pip install -r requirements.txt") from exc
 
@@ -83,11 +84,25 @@ except Exception as exc:
     print(f"[JARVIS] Legacy launcher unavailable; using limited fallback: {exc}")
 
 
+
+class _VoiceCommandRelay(QObject):
+    """Queue voice-worker callbacks safely onto the Qt GUI thread."""
+    command_requested = pyqtSignal(str)
+    status_requested = pyqtSignal(str)
+
+
 class JarvisBridge:
     def __init__(self, ui: JarvisUI):
         self.ui = ui
         self.store = JarvisStore()
         self.app_control = AppControlManager(ui)
+        self._voice_relay = _VoiceCommandRelay()
+        self._voice_relay.command_requested.connect(
+            self.handle_command, Qt.ConnectionType.QueuedConnection
+        )
+        self._voice_relay.status_requested.connect(
+            self._voice_status_on_ui, Qt.ConnectionType.QueuedConnection
+        )
         self._voice = VoiceController(self._voice_result, self._voice_status)
         self._voice_lock = threading.Lock()
         self.remote = JarvisRemoteServer(self._remote_command, self._remote_status)
@@ -109,11 +124,14 @@ class JarvisBridge:
             self.ui.write_log("SYS: Add GROQ_API_KEY or GEMINI_API_KEY to .env, or enter a Gemini key in setup.")
 
     def _voice_status(self, message):
+        self._voice_relay.status_requested.emit(str(message))
+
+    def _voice_status_on_ui(self, message):
         self.ui.write_log("VOICE: " + str(message))
 
     def _voice_result(self, text):
         if text:
-            self.handle_command(str(text))
+            self._voice_relay.command_requested.emit(str(text))
 
     def _ptt_enable(self, enabled):
         return "window" if enabled else ""
