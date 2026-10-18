@@ -45,6 +45,12 @@ class AppLauncherRegressionTests(unittest.TestCase):
         self.assertEqual(normalize("VS Code"), normalize("vs-code"))
         self.assertEqual(normalize("Android Studio"), normalize("androidstudio"))
 
+    def test_common_productivity_and_ai_apps_are_allow_listed(self):
+        aliases = _NS["APP_ALIASES"]
+        for name in ("word", "excel", "powerpoint", "outlook", "chatgpt",
+                     "copilot", "capcut", "canva", "krita", "inkscape"):
+            self.assertIn(name, aliases)
+
     @mock.patch.dict(os.environ, {"APPDATA": r"C:\Users\Test\AppData\Roaming"})
     def test_windows_start_menu_shortcut_used_for_alias_when_executable_not_on_path(self):
         launch_app = _NS["launch_app"]
