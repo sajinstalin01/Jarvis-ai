@@ -203,7 +203,11 @@ class JarvisBridge:
             return app_control_response
         if p in {"help", "commands", "what can you do"}:
             return ("Available commands:\n"
-                    "• launch <app> [search <query>]\n"
+                    "• launch <app> [search <query>]; apps; apps search <name>; refresh apps\n"
+                    "• permissions; grant/revoke permission <read apps|launch apps|type text|send message|call|all>\n"
+                    "• type text <plain text> (permission + per-action confirmation)\n"
+                    "• draft message on <whatsapp|telegram>: <text> (draft only)\n"
+                    "• prepare call on <whatsapp|telegram> (opens app; you place call)\n"
                     "• open <google|youtube|github|gmail|wikipedia>\n"
                     "• search <query>; calculate <expression>\n"
                     "• pc status, pc lock, pc mute, pc screenshot\n"
