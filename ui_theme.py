@@ -33,7 +33,7 @@ REALISTIC_PALETTE = {
 }
 
 
-def apply_realistic_theme(ui_module: Any, app: Any) -> None:
+def apply_realistic_theme(ui_module: Any, app: Any, font_family: str = "Segoe UI") -> None:
     """Apply a muted titanium/blue palette before UI widgets are constructed."""
     palette_class = getattr(ui_module, "C", None)
     if palette_class is not None:
@@ -52,7 +52,7 @@ def apply_realistic_theme(ui_module: Any, app: Any) -> None:
         from PyQt6.QtGui import QFont
         app.setApplicationName("J.A.R.V.I.S.")
         app.setStyle("Fusion")
-        app.setFont(QFont("Segoe UI", 9))
+        app.setFont(QFont(font_family or "Segoe UI", 9))
         app.setStyleSheet("""
             QToolTip {
                 color: #e8f1f5;
@@ -105,28 +105,30 @@ def apply_realistic_theme(ui_module: Any, app: Any) -> None:
         pass
 
 
-def polish_window(window: Any) -> None:
-    """Refine ordinary control typography while preserving telemetry mono text."""
+def polish_window(window: Any, font_family: str = "Segoe UI") -> None:
+    """Apply the selected family to normal controls; keep technical panels monospaced."""
     try:
         from PyQt6.QtGui import QFont
         from PyQt6.QtWidgets import QLineEdit, QTextEdit, QWidget
+
+        family = str(font_family or "Segoe UI").strip() or "Segoe UI"
         for widget in window.findChildren(QWidget):
             try:
                 name = type(widget).__name__
                 if name in {"HudCanvas", "MetricBar", "LogWidget"} or isinstance(widget, QTextEdit):
                     continue
-                font = widget.font()
-                if font.family().lower() in {"courier new", "consolas", "monospace"}:
-                    weight = font.weight()
-                    size = font.pointSizeF()
-                    replacement = QFont("Segoe UI", max(8, int(size if size > 0 else 9)))
-                    replacement.setWeight(weight)
-                    if font.italic():
-                        replacement.setItalic(True)
-                    widget.setFont(replacement)
+                current = widget.font()
+                point_size = current.pointSizeF()
+                size = max(8, min(32, int(round(point_size if point_size > 0 else 9))))
+                replacement = QFont(family, size)
+                replacement.setWeight(current.weight())
+                replacement.setItalic(current.italic())
+                replacement.setUnderline(current.underline())
+                widget.setFont(replacement)
                 if isinstance(widget, QLineEdit):
-                    widget.setMinimumHeight(max(widget.minimumHeight(), 34))
+                    widget.setMinimumHeight(max(widget.minimumHeight(), 30))
             except Exception:
                 continue
     except Exception:
+        # Font customization is optional and must never prevent JARVIS startup.
         pass
