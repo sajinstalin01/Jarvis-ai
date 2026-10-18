@@ -109,8 +109,8 @@ def polish_window(window: Any) -> None:
     """Refine ordinary control typography while preserving telemetry mono text."""
     try:
         from PyQt6.QtGui import QFont
-        from PyQt6.QtWidgets import QLineEdit, QTextEdit
-        for widget in window.findChildren(object):
+        from PyQt6.QtWidgets import QLineEdit, QTextEdit, QWidget
+        for widget in window.findChildren(QWidget):
             try:
                 name = type(widget).__name__
                 if name in {"HudCanvas", "MetricBar", "LogWidget"} or isinstance(widget, QTextEdit):
