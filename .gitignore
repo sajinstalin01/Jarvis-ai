@@ -12,3 +12,8 @@ jarvis_data/
 config/api_keys.json
 config/ui_settings.json
 memory/long_term.json
+
+# User-owned custom fonts stay local; keep only the folder documentation in Git.
+/custom_fonts/*
+!/custom_fonts/.gitkeep
+!/custom_fonts/README.md
