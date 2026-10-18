@@ -1,6 +1,6 @@
 """Unified J.A.R.V.I.S. desktop assistant: original dashboard + V2 voice/app/WhatsApp features."""
 from __future__ import annotations
-import ast, datetime, operator, os, platform, queue, shutil, socket, subprocess, threading, time, urllib.parse, webbrowser
+import ast, datetime, json, operator, os, platform, queue, shutil, socket, subprocess, threading, time, urllib.parse, webbrowser
 from functools import lru_cache
 from pathlib import Path
 from tkinter import messagebox
@@ -102,7 +102,7 @@ def _find_store_app_id(name, candidates=()):
 
     names = [requested]
     for candidate in candidates:
-        stem = Path(str(candidate).replace("\\\\", "/")).stem
+        stem = Path(str(candidate).replace("\\", "/")).stem
         if stem and stem.casefold() not in {"exe", "msc", "cpl"}:
             names.append(stem)
 
