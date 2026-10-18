@@ -49,6 +49,117 @@ def _start_menu_shortcuts():
     return index
 
 
+@lru_cache(maxsize=1)
+def _start_apps_index():
+    """Read Windows' registered Start Apps, including packaged Store apps.
+
+    Store apps frequently have no ordinary executable on PATH and may not
+    expose a .lnk file. Get-StartApps returns their display name and AppUserModel
+    ID, which Explorer can launch through the AppsFolder namespace.
+    """
+    if platform.system() != "Windows":
+        return []
+    command = (
+        "Get-StartApps | Select-Object Name, AppID | ConvertTo-Json -Compress"
+    )
+    try:
+        powershell = shutil.which("powershell.exe") or "powershell.exe"
+        options = {}
+        no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        if no_window:
+            options["creationflags"] = no_window
+        result = subprocess.run(
+            [powershell, "-NoProfile", "-NonInteractive", "-Command", command],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            timeout=12, check=False, **options
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return []
+        payload = json.loads(result.stdout.lstrip("\\ufeff"))
+        rows = payload if isinstance(payload, list) else [payload]
+        found = []
+        seen = set()
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            display = str(row.get("Name") or "").strip()
+            app_id = str(row.get("AppID") or "").strip()
+            if display and app_id and app_id.casefold() not in seen:
+                found.append((display, app_id))
+                seen.add(app_id.casefold())
+        return found
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError):
+        return []
+
+
+def _find_store_app_id(name, candidates=()):
+    """Resolve an app name/alias to a unique registered Windows Store AppID."""
+    if platform.system() != "Windows":
+        return None
+    requested = str(name or "").strip()
+    if not requested:
+        return None
+
+    names = [requested]
+    for candidate in candidates:
+        stem = Path(str(candidate).replace("\\\\", "/")).stem
+        if stem and stem.casefold() not in {"exe", "msc", "cpl"}:
+            names.append(stem)
+
+    candidate_set = {str(item).casefold() for item in candidates}
+    for alias, values in APP_ALIASES.items():
+        if candidate_set.intersection(str(item).casefold() for item in values):
+            names.append(alias)
+
+    # Preserve order while eliminating equivalent names.
+    unique_names = []
+    seen_names = set()
+    for item in names:
+        key = _normalize_app_name(item)
+        if key and key not in seen_names:
+            unique_names.append((item, key))
+            seen_names.add(key)
+
+    records = _start_apps_index()
+    if not records:
+        return None
+
+    # An exact registered name has priority over substring matching.
+    for _name, key in unique_names:
+        matches = {app_id for display, app_id in records
+                   if _normalize_app_name(display) == key}
+        if len(matches) == 1:
+            return next(iter(matches))
+        if len(matches) > 1:
+            return None
+
+    # Accept versioned/product suffixes only if the result is unambiguous.
+    for _name, key in unique_names:
+        if len(key) < 4:
+            continue
+        matches = {app_id for display, app_id in records
+                   if key in _normalize_app_name(display)
+                   or _normalize_app_name(display) in key}
+        if len(matches) == 1:
+            return next(iter(matches))
+        if len(matches) > 1:
+            return None
+    return None
+
+
+def _launch_store_app(app_id):
+    """Ask Explorer to activate a registered app using its AppUserModel ID."""
+    if platform.system() != "Windows" or not str(app_id or "").strip():
+        return False
+    app_id = str(app_id).strip()
+    # AppIDs are returned by Get-StartApps, not interpolated from user input.
+    subprocess.Popen(
+        ["explorer.exe", "shell:AppsFolder\\" + app_id],
+        shell=False
+    )
+    return True
+
+
 def find_start_menu_shortcut(name):
     normalized = "".join(ch for ch in name.casefold() if ch.isalnum())
     return _start_menu_shortcuts().get(normalized)
@@ -233,6 +344,21 @@ def launch_app(name, search_query=None):
         else:
             shortcut_error = ""
 
+        # If there was no usable Start Menu shortcut, ask Windows for the
+        # registered AppID. This is the missing path for Microsoft Store apps
+        # such as WhatsApp and Telegram Desktop, whose binaries aren't on PATH.
+        store_app_id = _find_store_app_id(requested, candidates or ())
+        if store_app_id:
+            try:
+                _launch_store_app(store_app_id)
+                if search_url:
+                    webbrowser.open(search_url)
+                return True, f"Launching installed Store app '{requested}'."
+            except (OSError, subprocess.SubprocessError) as exc:
+                shortcut_error = (shortcut_error + "; " if shortcut_error else "") + (
+                    f"Store activation failed: {exc}"
+                )
+
         if candidates:
             for candidate in candidates:
                 expanded = os.path.expandvars(str(candidate))
@@ -284,13 +410,19 @@ def launch_app(name, search_query=None):
                 elif target.lower().endswith(".cpl"):
                     subprocess.Popen(["control.exe", target], shell=False)
                 else:
-                    args = ["cmd.exe", "/c", "start", "", target]
-                    if search_url:
-                        args.append(search_url)
-                    subprocess.Popen(args, shell=False)
-                return True, (
-                    f"Asked Windows to open {requested}. If it did not appear, check whether it is installed."
-                )
+                    # Do not report success merely because cmd.exe accepted
+                    # "start WhatsApp.exe". Windows start is asynchronous and
+                    # can return zero even when no application was found.
+                    details = []
+                    if shortcut_error:
+                        details.append(shortcut_error)
+                    details.append("no executable or Start Menu shortcut was found")
+                    return False, (
+                        f"Could not launch '{requested}': " + "; ".join(details) +
+                        ". For Microsoft Store apps, verify that the app is installed "
+                        "for this Windows account, then try the exact Start Menu name."
+                    )
+                return True, f"Opening {requested}."
             except (OSError, subprocess.SubprocessError) as exc:
                 detail = f" {exc}"
                 if shortcut_error:
