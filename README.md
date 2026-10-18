@@ -17,7 +17,7 @@
 - **Expanded third-party shortcuts:** Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, VS Code, Visual Studio, Android Studio, PyCharm, IntelliJ IDEA, Git Bash, GitHub Desktop, Cursor, Windsurf, Sublime Text, Postman, Docker Desktop, Jupyter Notebook, Anaconda Navigator, MySQL Workbench, DBeaver, FileZilla, VLC, OBS Studio, Discord, Telegram, WhatsApp Desktop, Spotify, Zoom, Microsoft Teams, Slack, Notion, Obsidian, Dropbox, OneDrive, Google Drive, Steam, Epic Games Launcher, 7-Zip, WinRAR, Notepad++, Photoshop, Premiere Pro, After Effects, GIMP, Blender, Audacity, HandBrake, DaVinci Resolve and Figma.
 - GUI app shortcut panel now includes Windows Security, Settings, Zoom and Notion in addition to the existing quick-launch buttons. Use commands like `launch computer management`, `launch network connections`, `launch zoom`, `launch teams`, `launch notion`, `launch cursor`, `launch docker desktop`, `launch blender`, `launch gimp`, `launch figma`, `launch postman` or `launch filezilla`. Apps must be installed. JARVIS checks allow-listed aliases, Start Menu shortcuts and registered Store app IDs; it only reports success when a launch target could be handed off. Custom executable paths can still be added to `APP_ALIASES`.
 - Optional microphone input with SpeechRecognition and PyAudio; optional spoken responses with pyttsx3.
-- WhatsApp shortcut launches the installed WhatsApp Desktop application only. WhatsApp Web opening, contact search, and message-draft helper commands are disabled.
+- WhatsApp/Telegram interaction uses opt-in, permission-gated workflows: JARVIS can prepare a message draft/share link, but never chooses a recipient or presses Send. Call preparation only opens the app; you choose the contact and start the call yourself.
 - Safe GitHub fast-forward updater and GitHub Actions syntax checks.
 
 ## Quick start — Windows 10/11
@@ -53,6 +53,20 @@ Linux/macOS: `bash run_linux_mac.sh`.
 - `launch zoom`, `launch teams`, `launch slack`, `launch notion`, `launch obsidian`, `launch cursor`, `launch docker desktop`, `launch blender`, `launch gimp`, `launch figma`, `launch postman`, `launch filezilla`
 - `open whatsapp` or `launch whatsapp` (opens WhatsApp Desktop only)
 - `launch chrome search git` or `open chrome search git` (launches Chrome and searches Google)
+
+## App discovery and interaction permissions
+
+JARVIS has a local permission manager for supported desktop actions. Run `permissions` to view current settings. Sensitive capabilities are off by default and are stored locally in `config/app_permissions.json` (excluded from Git).
+
+- `apps` or `list apps` lists registered Windows app names; `apps search whatsapp`, `search app telegram`, and `refresh apps` help find an installed app. Then run `open <exact app name>`.
+- `grant permission read apps` permits reading registered display names only; it does **not** read private chats or app data.
+- `grant permission launch apps` and `revoke permission launch apps` control JARVIS app launching.
+- `grant permission type text` enables literal foreground typing. Every type action shows a confirmation, minimizes JARVIS, gives you 5 seconds to select the intended app and text field, then types plain text. It does not press Enter, click buttons, or send anything.
+- `draft message on whatsapp: Hello` or `draft message on telegram: Hello` opens a message-share/draft link after confirmation. You choose the recipient, review the content, and tap Send yourself.
+- `prepare call on whatsapp` or `prepare call on telegram` opens that app after confirmation; you choose the contact and start the call manually.
+- `grant permission send message`, `grant permission call`, or `grant permission all` enables the relevant JARVIS-side capability after a confirmation dialog. Use `revoke permission <capability>` to turn one off, or `revoke permission all` to disable all app-control capabilities.
+
+**Important limitations:** Windows does not offer JARVIS a universal permission switch for every third-party app. JARVIS cannot grant itself Windows privacy permissions, read all files or private app contents, bypass app security, or silently send messages/place calls. Message and call actions remain user-controlled even when the corresponding JARVIS capability is enabled. These features have been source/CI tested, but actual WhatsApp/Telegram behavior depends on what is installed and registered on your Windows machine.
 
 ## Voice and AI setup
 Voice input requires SpeechRecognition, a microphone and compatible PyAudio; recognition uses Google's service and requires internet. Set `JARVIS_SPEAK_RESPONSES=true` for optional spoken replies. Groq is tried first, then Gemini. Keep API keys in local `.env`; never commit real keys.
@@ -110,7 +124,7 @@ Keep the JSON valid and use doubled backslashes in Windows paths. If Git is not 
 - `run_windows.bat`, `run_linux_mac.sh` — setup, update and launch.
 - `.github/workflows/python-check.yml` — CI syntax check.
 
-**Notes:** Third-party apps are launched through known aliases or exact matching Windows Start Menu shortcuts. Apps installed without Start Menu shortcuts may need an executable path added to `APP_ALIASES` in `jarvis.py`. JARVIS never executes arbitrary shell commands. WhatsApp Web/contact-search/message helper commands are not supported; only the installed desktop app is launched.
+**Notes:** Third-party apps are launched through exact/unique Start Menu shortcuts or registered Windows app IDs. JARVIS never executes arbitrary shell commands. Installed-app discovery shows registered display names only; it does not read private chats, contacts, or arbitrary file contents.
 
 ## New assistant modules
 
