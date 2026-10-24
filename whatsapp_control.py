@@ -21,7 +21,7 @@ def prepare_message(contact, message):
             "For direct wa.me links, use a verified international phone number and ask for confirmation first.")
 
 def open_number_chat(number, message=""):
-    digits=re.sub(r"\\D","",number)
+    digits = re.sub(r"\D", "", number)
     if len(digits)<8 or len(digits)>15: return False,"Use a verified international phone number including country code."
     url="https://wa.me/"+digits
     if message: url+="?text="+quote(message)

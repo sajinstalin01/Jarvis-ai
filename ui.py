@@ -3608,8 +3608,8 @@ class ProvidersOverlay(_HudOverlay):
             pipeline={"stt": self._pipe.get("stt", ""),
                       "llm": self._pipe.get("llm", ""),
                       "tts": self._pipe.get("tts", "")},
-            creds=creds,
-            sidecar=sidecar_pid,
+            providers=creds,
+            sidecar_provider=sidecar_pid,
             sidecar_first=self._first_combo.currentData() == "before",
         )
 

@@ -142,7 +142,7 @@ except (ImportError, OSError) as first_error:
         details.append("Automatic repair was disabled by JARVIS_DISABLE_PYQT6_AUTO_REPAIR.")
     elif repair_error:
         details.extend(["", "Repair diagnostic:", repair_error])
-    raise SystemExit("\\n".join(details)) from first_error
+    raise SystemExit("\n".join(details)) from first_error
 
 try:
     from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
