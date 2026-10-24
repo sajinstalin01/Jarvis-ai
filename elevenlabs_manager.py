@@ -313,12 +313,14 @@ class ElevenLabsManager:
             voice_id = set_voice.group(1)
             self._save_settings({"elevenlabs_voice_id": voice_id})
             os.environ["ELEVENLABS_VOICE_ID"] = voice_id
+            self._write_env_value("ELEVENLABS_VOICE_ID", voice_id)
             return f"Default ElevenLabs voice ID saved: {voice_id}"
         set_model = re.fullmatch(r"set-model\s+([A-Za-z0-9_.-]{3,100})", args, flags=re.I)
         if set_model:
             model_id = set_model.group(1)
             self._save_settings({"elevenlabs_model_id": model_id})
             os.environ["ELEVENLABS_MODEL_ID"] = model_id
+            self._write_env_value("ELEVENLABS_MODEL_ID", model_id)
             return f"Default ElevenLabs model ID saved: {model_id}. Use 'elevenlabs models' to see supported TTS models."
 
         tts = re.fullmatch(r"(?:speak|tts)\s+(.+)", args, flags=re.I | re.S)
