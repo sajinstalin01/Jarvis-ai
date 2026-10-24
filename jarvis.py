@@ -7,10 +7,14 @@ controls remain wired through this bridge.
 from __future__ import annotations
 import ast
 import datetime as dt
+import importlib
+import importlib.util
 import json
 import os
 import platform
 import re
+import subprocess
+import sys
 import threading
 import time
 import urllib.parse
@@ -52,11 +56,93 @@ try:
 except Exception:
     pass
 
-try:
+def _load_pyqt6():
+    """Import the Qt classes required by JARVIS."""
     from PyQt6.QtCore import QObject, Qt, QUrl, pyqtSignal
     from PyQt6.QtWidgets import QApplication
-except ImportError as exc:
-    raise SystemExit("PyQt6 is required for the new JARVIS HUD. Run: python -m pip install -r requirements.txt") from exc
+    return QObject, Qt, QUrl, pyqtSignal, QApplication
+
+
+def _repair_pyqt6_install():
+    """Install/repair PyQt6 with this exact Python interpreter, then retry."""
+    package_present = False
+    try:
+        package_present = importlib.util.find_spec("PyQt6") is not None
+    except (ImportError, ValueError):
+        pass
+
+    command = [sys.executable, "-m", "pip", "install", "--disable-pip-version-check"]
+    if package_present:
+        # A present package that cannot load often has an incomplete/mismatched wheel.
+        command.extend(["--upgrade", "--force-reinstall", "--no-cache-dir"])
+    command.append("PyQt6>=6.7.0")
+    print("[JARVIS] PyQt6 import failed; attempting a repair using this Python interpreter:")
+    print(f"[JARVIS] {sys.executable}")
+    return subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        check=False,
+    )
+
+
+try:
+    QObject, Qt, QUrl, pyqtSignal, QApplication = _load_pyqt6()
+except (ImportError, OSError) as first_error:
+    # The old message told users to install requirements, but did not ensure pip
+    # targeted the Python interpreter actually launching this file. Try a focused
+    # repair once; set JARVIS_DISABLE_PYQT6_AUTO_REPAIR=1 to disable network changes.
+    repair_error = ""
+    disabled = os.getenv("JARVIS_DISABLE_PYQT6_AUTO_REPAIR", "").strip().casefold() in {
+        "1", "true", "yes", "on"
+    }
+    if not disabled:
+        try:
+            repair = _repair_pyqt6_install()
+            repair_log = (repair.stderr or repair.stdout or "").strip()
+            if repair.returncode != 0:
+                repair_error = repair_log[-2500:]
+            else:
+                # Remove any partially imported modules before retrying the wheel.
+                for module_name in tuple(sys.modules):
+                    if module_name == "PyQt6" or module_name.startswith("PyQt6."):
+                        sys.modules.pop(module_name, None)
+                importlib.invalidate_caches()
+                try:
+                    QObject, Qt, QUrl, pyqtSignal, QApplication = _load_pyqt6()
+                    print("[JARVIS] PyQt6 repair succeeded.")
+                except (ImportError, OSError) as retry_error:
+                    repair_error = f"Import still fails after repair: {retry_error}"
+        except (OSError, subprocess.SubprocessError) as repair_exc:
+            repair_error = f"Automatic pip repair could not run: {repair_exc}"
+        except Exception as repair_exc:
+            repair_error = f"Automatic PyQt6 repair failed: {type(repair_exc).__name__}: {repair_exc}"
+
+    # Abort before importing ui.py, which also requires Qt, and show actionable
+    # diagnostics instead of the previous generic SystemExit message.
+    try:
+        from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR
+        qt_versions = f"PyQt {PYQT_VERSION_STR}; Qt {QT_VERSION_STR}"
+    except Exception:
+        qt_versions = "PyQt6 version unavailable"
+
+    details = [
+        "JARVIS could not load the PyQt6 desktop UI.",
+        f"Python executable: {sys.executable}",
+        f"Initial import error: {first_error}",
+        qt_versions,
+        "",
+        "Try repairing PyQt6 with the same Python interpreter:",
+        f'"{sys.executable}" -m pip install --upgrade --force-reinstall --no-cache-dir "PyQt6>=6.7.0"',
+        f'"{sys.executable}" -m pip install -r "{ROOT / "requirements.txt"}"',
+        "If the error mentions a missing DLL on Windows, install/update the Microsoft Visual C++ 2015–2022 Redistributable.",
+    ]
+    if disabled:
+        details.append("Automatic repair was disabled by JARVIS_DISABLE_PYQT6_AUTO_REPAIR.")
+    elif repair_error:
+        details.extend(["", "Repair diagnostic:", repair_error])
+    raise SystemExit("\\n".join(details)) from first_error
 
 try:
     from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
