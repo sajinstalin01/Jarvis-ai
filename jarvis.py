@@ -156,6 +156,8 @@ from open_command import parse_open_payload, safe_website_url
 from app_control_manager import AppControlManager
 from elevenlabs_manager import ElevenLabsManager
 from jarvis_ai import generate_response
+from core.api_key_manager import check_all_api_keys, format_api_status, get_api_keys
+from memory.evolution import is_enabled as auto_memory_enabled, learn_from_message, set_enabled as set_auto_memory, status_text as auto_memory_status
 from jarvis_control import lock_screen, take_screenshot, toggle_mute
 from jarvis_remote import JarvisRemoteServer
 from jarvis_services import JarvisStore, SAFE_WEBSITES, developer_diagnostics, parse_reminder_command, system_metrics
@@ -388,10 +390,30 @@ class JarvisBridge:
                     "• search <query>; calculate <expression>\n"
                     "• pc status, pc lock, pc mute, pc screenshot\n"
                     "• remember <fact>, memories [search], forget memory <id>, history [search]\n"
+                    "• memory auto [on|off|status] — privacy-conscious local learning\n"
+                    "• api status / api check — live health check for every configured API key\n"
+                    "• Unlimited key pools: GROQ_API_KEY_2... or api_keys lists in local config\n"
                     "• remind me in 10 minutes to <task>; remind me daily/weekly to <task>; list reminders\n"
                     "• save workflow <name>: launch <app>; open <site>; search <query>\n"
                     "• run workflow <name>; workflows; developer diagnostics\n"
                     "• remote server start / remote server stop")
+        if p in {"api status", "api check", "check api keys", "check api status", "api keys status"}:
+            self._refresh_api_keys()
+            return format_api_status(check_all_api_keys())
+        if p in {"api keys", "api providers"}:
+            rows = []
+            for provider in ("groq", "gemini", "elevenlabs"):
+                count = len(get_api_keys(provider))
+                rows.append(f"{provider.title()}: {count} configured key(s)")
+            return "\n".join(rows) + "\nUse 'api status' to check each key live; key values stay hidden."
+        if p in {"memory auto", "memory auto status"}:
+            return auto_memory_status()
+        if p in {"memory auto on", "memory auto enable", "enable memory auto"}:
+            set_auto_memory(True)
+            return auto_memory_status()
+        if p in {"memory auto off", "memory auto disable", "disable memory auto"}:
+            set_auto_memory(False)
+            return auto_memory_status()
         if p in {"time", "what time is it"}:
             return "Local time: " + dt.datetime.now().astimezone().strftime("%I:%M:%S %p")
         if p in {"date", "what is the date", "what's the date"}:
@@ -508,6 +530,14 @@ class JarvisBridge:
         if not prompt:
             return
         self._remember_history("BOSS", prompt)
+        # Learn only narrow, explicitly stated non-sensitive facts. The opt-out is
+        # local and the full prompt is never sent to a separate memory service.
+        try:
+            learned = learn_from_message(self.store, prompt)
+            if learned:
+                self.ui.write_log("MEMORY: " + learned)
+        except Exception as memory_error:
+            self.ui.write_log(f"MEMORY: automatic learning skipped ({type(memory_error).__name__}).")
         self.ui.set_state("THINKING")
         try:
             local = self._local_command(prompt)

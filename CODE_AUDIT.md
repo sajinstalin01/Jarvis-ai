@@ -140,3 +140,12 @@ The links below provide direct access to every file in the recursive Git tree in
 - [`tests/test_wake_word_facade.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/tests/test_wake_word_facade.py)
 - [`tests/test_whatsapp_control.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/tests/test_whatsapp_control.py)
 
+
+
+## Follow-up feature additions
+
+- Added `core/api_key_manager.py` for unlimited configured key pools for the currently integrated Groq, Gemini, and ElevenLabs providers, masked live health checks, and safe status classifications.
+- Updated `jarvis_ai.py` to try each Groq key and then each Gemini fallback key while keeping the existing single-key call signature.
+- Added `memory/evolution.py` for opt-in-toggleable, local, narrow automatic memory updates based on explicit user statements; credentials and sensitive topics are excluded.
+- Wired `api status`, `api check`, `api keys`, and `memory auto on|off|status` into the active bridge. Preserved existing API configuration during first-run setup and added key-pool selection to ElevenLabs.
+- Added regression tests for key pool loading/masking/status and memory extraction/toggle behavior. CI is still required to verify the commit.
