@@ -122,6 +122,17 @@ Include the token in the HTTP `Authorization: Bearer <token>` header. The remote
 - This is turn-based voice interaction, not a full-duplex streaming audio call. It requires internet, microphone permission, SpeechRecognition, compatible PyAudio, and pyttsx3/system TTS. Voice recognition sends audio to Google's recognition service; don't enable it for private conversations you don't want processed by that service.
 - Conversation history and memories remain in local `jarvis_data/jarvis.sqlite3` and are not uploaded to GitHub. Do not store passwords or API keys in memory.
 
+## Automatic memory evolution, API key pools, and free-form prompts
+
+JARVIS accepts ordinary typed questions and requests in the chat input; unrecognized safe commands are sent to the configured AI providers. Local action commands remain allow-listed and sensitive operations keep their existing confirmation/permission checks. Do not paste API keys into the chat input.
+
+- **Automatic memory evolution:** high-confidence explicit statements such as "I prefer dark mode", "My name is ...", "I'm building ...", and "I use ..." can update a local SQLite memory. The learner intentionally skips questions, general conversation, secrets/credentials, and sensitive personal topics. Learning can be controlled with `memory auto status`, `memory auto off`, and `memory auto on`. Review/remove entries with `memories` and `forget memory <id>`. Data remains local.
+- **Live API health:** `api status` or `api check` makes an authenticated test request for each configured Groq, Gemini, and ElevenLabs key. Reports distinguish valid, invalid, permission/connection failure, rate limiting, and missing credentials. Values are always masked; key contents are never printed.
+- **Multiple API keys per provider:** no application-level key-count limit is imposed. Add `GROQ_API_KEY_2`, `GROQ_API_KEY_3`, etc. and corresponding `GEMINI_API_KEY_2` / `ELEVENLABS_API_KEY_2` variables in your local ignored `.env`, or use `"api_keys": {"groq": ["key1", "key2"], "gemini": ["key1", "key2"], "elevenlabs": ["key1", "key2"]}` in ignored local `config/api_keys.json`. Single-key legacy fields continue to work. JARVIS tries the configured Groq key pool before Gemini fallback and uses the first authenticated ElevenLabs key for audio tasks.
+- **API commands:** `api keys` lists per-provider key counts without showing secrets; `api status` checks every configured key live.
+
+Health status requires internet access and makes a real request to each service. A valid key does not guarantee unlimited provider quotas, free usage, model access, or permission for every endpoint. Providers are only supported where JARVIS has an adapter; this is not a generic adapter for arbitrary API vendors.
+
 ## Auto-update configuration
 The updater settings are in `update_config.json`:
 - `enabled`: turn automatic updates on/off.

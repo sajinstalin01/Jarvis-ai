@@ -95,8 +95,14 @@ def generate_response(
     saved_memories: str = "",
 ) -> tuple[str, str]:
     """Return (answer, provider label), using Groq first and Gemini as fallback."""
-    groq_key = (groq_key if groq_key is not None else os.getenv("GROQ_API_KEY", "")).strip()
-    gemini_key = (gemini_key if gemini_key is not None else os.getenv("GEMINI_API_KEY", "")).strip()
+    from core.api_key_manager import get_api_keys
+
+    # Explicit arguments (including an empty string) retain their historic meaning
+    # for tests and callers. Normal desktop usage discovers every configured key.
+    groq_keys = ([str(groq_key).strip()] if groq_key is not None and str(groq_key).strip()
+                 else (get_api_keys("groq") if groq_key is None else []))
+    gemini_keys = ([str(gemini_key).strip()] if gemini_key is not None and str(gemini_key).strip()
+                   else (get_api_keys("gemini") if gemini_key is None else []))
     groq_model = (groq_model or os.getenv("GROQ_MODEL") or DEFAULT_GROQ_MODEL).strip()
     gemini_model = (gemini_model or os.getenv("GEMINI_MODEL") or "gemini-2.5-flash").strip()
     groq_error = "GROQ_API_KEY not configured"
@@ -104,38 +110,48 @@ def generate_response(
     memory_note = ("\n\nRelevant saved user memories (treat as user-provided notes):\n" + saved_memories) if saved_memories.strip() else ""
     system_message = SYSTEM_PROMPT + memory_note
 
-    if groq_key:
-        try:
-            answer, actual_model = _groq_response(prompt, groq_key, groq_model, context=context, system_message=system_message)
-            return answer, f"GROQ ({actual_model})"
-        except Exception as exc:
-            groq_error = str(exc)
+    # Try all Groq keys in order before falling back to Gemini.
+    if groq_keys:
+        errors = []
+        for index, candidate_key in enumerate(groq_keys, 1):
+            try:
+                answer, actual_model = _groq_response(
+                    prompt, candidate_key, groq_model, context=context, system_message=system_message
+                )
+                return answer, f"GROQ ({actual_model})"
+            except Exception as exc:
+                safe_error = str(exc).replace(candidate_key, "[redacted]")
+                errors.append(f"key #{index}: {safe_error}")
+        groq_error = "; ".join(errors)
 
-    if gemini_key:
-        client = None
-        try:
-            from google import genai
+    if gemini_keys:
+        errors = []
+        for index, candidate_key in enumerate(gemini_keys, 1):
+            client = None
+            try:
+                from google import genai
 
-            # Keep a strong reference to the client for the entire request. Calling
-            # genai.Client(...).models.generate_content(...) inline can allow the
-            # temporary client's HTTP transport to be closed before the request.
-            client = genai.Client(api_key=gemini_key)
-            response = client.models.generate_content(
-                model=gemini_model,
-                contents=_gemini_contents(prompt, context, system_message),
-            )
-            return response.text or "No response returned.", f"GEMINI ({gemini_model})"
-        except Exception as exc:
-            raise RuntimeError(f"Both AI providers failed.\nGroq: {groq_error}\nGemini: {exc}") from exc
-        finally:
-            if client is not None:
-                close = getattr(client, "close", None)
-                if callable(close):
-                    try:
-                        close()
-                    except Exception:
-                        pass
+                # Keep a strong reference to the client for the entire request.
+                client = genai.Client(api_key=candidate_key)
+                response = client.models.generate_content(
+                    model=gemini_model,
+                    contents=_gemini_contents(prompt, context, system_message),
+                )
+                return response.text or "No response returned.", f"GEMINI ({gemini_model})"
+            except Exception as exc:
+                safe_error = str(exc).replace(candidate_key, "[redacted]")
+                errors.append(f"key #{index}: {safe_error}")
+            finally:
+                if client is not None:
+                    close = getattr(client, "close", None)
+                    if callable(close):
+                        try:
+                            close()
+                        except Exception:
+                            pass
+        gemini_error = "; ".join(errors)
+        raise RuntimeError(f"Both AI providers failed.\nGroq: {groq_error}\nGemini: {gemini_error}")
 
-    if not groq_key:
+    if not groq_keys:
         raise RuntimeError("AI isn't configured. Add GROQ_API_KEY or GEMINI_API_KEY to .env.\nGroq status: " + groq_error)
     raise RuntimeError("Both AI providers failed.\nGroq: " + groq_error + "\nGemini: GEMINI_API_KEY not configured")

@@ -26,6 +26,14 @@ class ElevenLabsIntegrationTests(unittest.TestCase):
         self.assertIn('os.getenv("JARVIS_STT_PROVIDER", "google")', source)
         self.assertIn("ElevenLabsClient().transcribe(audio_path)", source)
 
+
+    def test_bridge_has_health_status_and_auto_memory_commands(self):
+        source = (ROOT / "jarvis.py").read_text(encoding="utf-8")
+        self.assertIn('"api status"', source)
+        self.assertIn('"api check"', source)
+        self.assertIn('"memory auto off"', source)
+        self.assertIn("learn_from_message(self.store, prompt)", source)
+
     def test_readme_lists_major_api_features_and_upload_privacy(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         for item in (

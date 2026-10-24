@@ -40,6 +40,33 @@ class JarvisAITests(unittest.TestCase):
         self.assertEqual(sent_messages[2]["content"], "I will keep it concise.")
         self.assertEqual(sent_messages[3]["content"], "hello")
 
+    def test_default_groq_key_pool_tries_next_key_after_failure(self):
+        groq_module = types.ModuleType("groq")
+        response = types.SimpleNamespace(
+            choices=[types.SimpleNamespace(message=types.SimpleNamespace(content="Second key worked"))]
+        )
+
+        class FakeGroq:
+            def __init__(self, api_key):
+                self.api_key = api_key
+                self.chat = types.SimpleNamespace(
+                    completions=types.SimpleNamespace(create=self.create)
+                )
+
+            def create(self, **kwargs):
+                if self.api_key == "bad-key":
+                    raise RuntimeError("HTTP 401 unauthorized")
+                return response
+
+        groq_module.Groq = FakeGroq
+        with patch.dict(sys.modules, {"groq": groq_module}), patch(
+            "core.api_key_manager.get_api_keys",
+            side_effect=lambda provider: ["bad-key", "good-key"] if provider == "groq" else [],
+        ):
+            answer, provider = generate_response("hello", groq_key=None, gemini_key="")
+        self.assertEqual(answer, "Second key worked")
+        self.assertEqual(provider, f"GROQ ({DEFAULT_GROQ_MODEL})")
+
     def test_gemini_prompt_contains_recent_context_and_memories(self):
         prompt = _gemini_contents(
             "What about the second option?",

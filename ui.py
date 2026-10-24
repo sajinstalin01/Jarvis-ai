@@ -6917,10 +6917,11 @@ class MainWindow(QMainWindow):
 
     def _on_setup_done(self, key: str, os_name: str):
         os.makedirs(CONFIG_DIR, exist_ok=True)
-        API_FILE.write_text(
-            json.dumps({"gemini_api_key": key, "os_system": os_name}, indent=4),
-            encoding="utf-8",
-        )
+        # Preserve all existing provider-key pools, assistant identity, and UI
+        # settings when the first-run Gemini setup is completed.
+        data = _read_full_config()
+        data.update({"gemini_api_key": key, "os_system": os_name})
+        API_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
         self._ready = True
         if self._overlay:
             self._overlay.hide()

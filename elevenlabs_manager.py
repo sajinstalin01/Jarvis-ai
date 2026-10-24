@@ -85,13 +85,41 @@ class ElevenLabsManager:
             updated.append(replacement)
         path.write_text("\n".join(updated).rstrip() + "\n", encoding="utf-8")
 
+    def _api_keys(self) -> list[str]:
+        try:
+            from core.api_key_manager import get_api_keys
+            keys = get_api_keys("elevenlabs")
+        except Exception:
+            keys = []
+        if not keys:
+            settings = self._settings()
+            legacy = (os.getenv("ELEVENLABS_API_KEY", "").strip()
+                      or str(settings.get("elevenlabs_api_key", "")).strip())
+            return [legacy] if legacy else []
+        return keys
+
     def _api_key(self) -> str:
-        settings = self._settings()
-        return (os.getenv("ELEVENLABS_API_KEY", "").strip()
-                or str(settings.get("elevenlabs_api_key", "")).strip())
+        keys = self._api_keys()
+        return keys[0] if keys else ""
 
     def _client(self) -> ElevenLabsClient:
-        return ElevenLabsClient(api_key=self._api_key())
+        keys = self._api_keys()
+        if not keys:
+            return ElevenLabsClient(api_key="")
+        last_error = None
+        for key in keys:
+            client = ElevenLabsClient(api_key=key, timeout=12)
+            try:
+                client.get_user()  # only use a key which can authenticate
+                return client
+            except ElevenLabsAPIError as exc:
+                last_error = exc
+                # A failed/authentication key must not prevent another configured
+                # key from working. Do not print any key value into logs.
+                continue
+        if last_error is not None:
+            raise last_error
+        return ElevenLabsClient(api_key="")
 
     def _voice_id(self) -> str:
         settings = self._settings()
