@@ -17,6 +17,7 @@
 - **Expanded third-party shortcuts:** Chrome, Edge, Firefox, Brave, Opera, Vivaldi, Arc, VS Code, Visual Studio, Android Studio, PyCharm, IntelliJ IDEA, Git Bash, GitHub Desktop, Cursor, Windsurf, Sublime Text, Postman, Docker Desktop, Jupyter Notebook, Anaconda Navigator, MySQL Workbench, DBeaver, FileZilla, VLC, OBS Studio, Discord, Telegram, WhatsApp Desktop, Spotify, Zoom, Microsoft Teams, Slack, Notion, Obsidian, Dropbox, OneDrive, Google Drive, Steam, Epic Games Launcher, 7-Zip, WinRAR, Notepad++, Photoshop, Premiere Pro, After Effects, GIMP, Blender, Audacity, HandBrake, DaVinci Resolve and Figma.
 - GUI app shortcut panel now includes Windows Security, Settings, Zoom and Notion in addition to the existing quick-launch buttons. Use commands like `launch computer management`, `launch network connections`, `launch zoom`, `launch teams`, `launch notion`, `launch cursor`, `launch docker desktop`, `launch blender`, `launch gimp`, `launch figma`, `launch postman` or `launch filezilla`. Apps must be installed. JARVIS checks allow-listed aliases, Start Menu shortcuts and registered Store app IDs; it only reports success when a launch target could be handed off. Custom executable paths can still be added to `APP_ALIASES`.
 - Optional microphone input with SpeechRecognition and PyAudio; optional spoken responses with pyttsx3.
+- **ElevenLabs API suite:** masked API-key setup and validation, account/usage status, voice/model discovery, high-quality text-to-speech, Scribe speech-to-text, sound effects, music generation, multi-voice dialogue, speech-to-speech voice conversion, and background-noise isolation. Generated files are stored in the local, git-ignored `generated_audio/` folder. Each generation task asks for confirmation before using API credits; file uploads require a separate privacy confirmation.
 - WhatsApp/Telegram interaction uses opt-in, permission-gated workflows: JARVIS can prepare a message draft/share link, but never chooses a recipient or presses Send. Call preparation only opens the app; you choose the contact and start the call yourself.
 - Safe GitHub fast-forward updater and GitHub Actions syntax checks.
 
@@ -67,6 +68,35 @@ JARVIS has a local permission manager for supported desktop actions. Run `permis
 - `grant permission send message`, `grant permission call`, or `grant permission all` enables the relevant JARVIS-side capability after a confirmation dialog. Use `revoke permission <capability>` to turn one off, or `revoke permission all` to disable all app-control capabilities.
 
 **Important limitations:** Windows does not offer JARVIS a universal permission switch for every third-party app. JARVIS cannot grant itself Windows privacy permissions, read all files or private app contents, bypass app security, or silently send messages/place calls. Message and call actions remain user-controlled even when the corresponding JARVIS capability is enabled. These features have been source/CI tested, but actual WhatsApp/Telegram behavior depends on what is installed and registered on your Windows machine.
+
+## ElevenLabs API integration
+
+JARVIS supports major ElevenLabs audio endpoints through a lightweight Python REST client (no extra SDK dependency required). Create an API key from the [ElevenLabs dashboard](https://elevenlabs.io/app/settings/api-keys), then run `elevenlabs configure` and paste it into the masked dialog. The key is validated against the account endpoint and stored only in the local ignored `.env` and `config/api_keys.json` files; never put an API key in a chat command.
+
+Use `elevenlabs help` for the in-app guide. Available commands:
+
+- `elevenlabs status` — test account access and show account/plan details.
+- `elevenlabs usage` — read usage and subscription limits returned by the API.
+- `elevenlabs voices [search term]` — list/search registered voices and IDs.
+- `elevenlabs models` — list text-to-speech models returned for your API key.
+- `elevenlabs set-voice <voice_id>` and `elevenlabs set-model <model_id>` — save defaults locally.
+- `elevenlabs speak <text>` or `elevenlabs tts <text>` — generate speech and play the result.
+- `elevenlabs sfx <prompt>` — generate a short sound effect.
+- `elevenlabs music <prompt>` — generate a 30-second music track (access can depend on plan).
+- `elevenlabs dialogue <voice_id>: <text> || <voice_id>: <text>` — generate multi-voice dialogue.
+- `elevenlabs transcribe "<audio/video path>"` — transcribe a local audio/video file using Scribe v2.
+- `elevenlabs isolate "<audio path>"` — isolate speech/audio from background noise.
+- `elevenlabs voice-change <voice_id> :: "<audio path>"` — transform recorded speech into an available target voice.
+
+Requests run in background threads so the HUD remains responsive. Generated audio is saved under `generated_audio/` and automatically played for audio-generation commands. The folder is excluded from Git. Account, quota, voice availability, and generation endpoints depend on the API key's permissions and the ElevenLabs plan. Generating speech/music/effects can consume credits, so each generation asks for confirmation. Transcription, isolation, and voice conversion upload the selected local media after a separate confirmation.
+
+### Optional ElevenLabs for normal JARVIS voice
+
+Set `JARVIS_TTS_PROVIDER=elevenlabs` in your local `.env` to speak normal JARVIS responses with the selected ElevenLabs voice. This makes each spoken response an API request and may consume credits; the default remains local `pyttsx3`.
+
+Set `JARVIS_STT_PROVIDER=elevenlabs` to use ElevenLabs Scribe for microphone recognition instead of the default Google Speech Recognition path. This uploads captured microphone audio to ElevenLabs. Keep `JARVIS_STT_PROVIDER=google` unless you explicitly want this data flow.
+
+The default voice/model are `21m00Tcm4TlvDq8ikWAM` and `eleven_multilingual_v2`, respectively. Choose your own voice with the voice listing command. Voice and model IDs can vary by account, and unsupported requests will be reported by the API.
 
 ## Voice and AI setup
 Voice input requires SpeechRecognition, a microphone and compatible PyAudio; recognition uses Google's service and requires internet. Set `JARVIS_SPEAK_RESPONSES=true` for optional spoken replies. Groq is tried first, then Gemini. Keep API keys in local `.env`; never commit real keys.

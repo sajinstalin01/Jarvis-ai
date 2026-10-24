@@ -41,22 +41,34 @@ if not API_FILE.exists():
 
 try:
     _cfg = json.loads(API_FILE.read_text(encoding="utf-8"))
-    if _cfg.get("gemini_api_key"):
-        os.environ.setdefault("GEMINI_API_KEY", str(_cfg["gemini_api_key"]))
+    for _config_key, _env_key in (
+        ("gemini_api_key", "GEMINI_API_KEY"),
+        ("elevenlabs_api_key", "ELEVENLABS_API_KEY"),
+        ("elevenlabs_voice_id", "ELEVENLABS_VOICE_ID"),
+        ("elevenlabs_model_id", "ELEVENLABS_MODEL_ID"),
+    ):
+        if _cfg.get(_config_key):
+            os.environ.setdefault(_env_key, str(_cfg[_config_key]))
 except Exception:
     pass
 
 try:
-    from PyQt6.QtCore import QObject, Qt, pyqtSignal
+    from PyQt6.QtCore import QObject, Qt, QUrl, pyqtSignal
     from PyQt6.QtWidgets import QApplication
 except ImportError as exc:
     raise SystemExit("PyQt6 is required for the new JARVIS HUD. Run: python -m pip install -r requirements.txt") from exc
+
+try:
+    from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
+except Exception:
+    QAudioOutput = QMediaPlayer = None
 
 import ui as _ui_module
 from ui import JarvisUI, apply_realistic_theme, polish_window
 from font_manager import (get_font_settings, install_font_menu, load_custom_fonts)
 from open_command import parse_open_payload, safe_website_url
 from app_control_manager import AppControlManager
+from elevenlabs_manager import ElevenLabsManager
 from jarvis_ai import generate_response
 from jarvis_control import lock_screen, take_screenshot, toggle_mute
 from jarvis_remote import JarvisRemoteServer
@@ -89,6 +101,8 @@ class _VoiceCommandRelay(QObject):
     """Queue voice-worker callbacks safely onto the Qt GUI thread."""
     command_requested = pyqtSignal(str)
     status_requested = pyqtSignal(str)
+    elevenlabs_result_requested = pyqtSignal(str)
+    elevenlabs_audio_requested = pyqtSignal(str)
 
 
 class JarvisBridge:
@@ -97,6 +111,29 @@ class JarvisBridge:
         self.store = JarvisStore()
         self.app_control = AppControlManager(ui)
         self._voice_relay = _VoiceCommandRelay()
+        self._voice_relay.elevenlabs_result_requested.connect(
+            self._elevenlabs_result_on_ui, Qt.ConnectionType.QueuedConnection
+        )
+        self._voice_relay.elevenlabs_audio_requested.connect(
+            self._play_elevenlabs_audio, Qt.ConnectionType.QueuedConnection
+        )
+        self.elevenlabs = ElevenLabsManager(
+            ui,
+            self._voice_relay.elevenlabs_result_requested.emit,
+            self._voice_relay.elevenlabs_audio_requested.emit,
+        )
+        self._elevenlabs_player = None
+        self._elevenlabs_audio_output = None
+        if QMediaPlayer is not None and QAudioOutput is not None:
+            try:
+                _parent_window = getattr(ui, "_win", None)
+                self._elevenlabs_player = QMediaPlayer(_parent_window)
+                self._elevenlabs_audio_output = QAudioOutput(_parent_window)
+                self._elevenlabs_player.setAudioOutput(self._elevenlabs_audio_output)
+            except Exception as _audio_exc:
+                print(f"[ElevenLabs] Qt audio playback unavailable: {_audio_exc}")
+                self._elevenlabs_player = None
+                self._elevenlabs_audio_output = None
         self._voice_relay.command_requested.connect(
             self.handle_command, Qt.ConnectionType.QueuedConnection
         )
@@ -122,6 +159,26 @@ class JarvisBridge:
         self.ui.write_log("SYS: PyQt6 HUD connected to Groq/Gemini, local memory, app launcher and PC controls.")
         if not (os.getenv("GROQ_API_KEY") or os.getenv("GEMINI_API_KEY")):
             self.ui.write_log("SYS: Add GROQ_API_KEY or GEMINI_API_KEY to .env, or enter a Gemini key in setup.")
+
+    def _elevenlabs_result_on_ui(self, message):
+        self.ui.write_log("ELEVENLABS: " + str(message))
+
+    def _play_elevenlabs_audio(self, file_path):
+        path = Path(str(file_path)).expanduser()
+        if not path.is_file():
+            self.ui.write_log(f"ELEVENLABS: Audio file not found: {path}")
+            return
+        try:
+            if self._elevenlabs_player is not None:
+                self._elevenlabs_player.stop()
+                self._elevenlabs_player.setSource(QUrl.fromLocalFile(str(path.resolve())))
+                self._elevenlabs_player.play()
+                self.ui.write_log(f"ELEVENLABS: Playing {path.name}")
+            else:
+                webbrowser.open(path.resolve().as_uri())
+                self.ui.write_log(f"ELEVENLABS: Opened {path.name} in the default media app.")
+        except Exception as exc:
+            self.ui.write_log(f"ELEVENLABS: Could not play audio: {exc}")
 
     def _voice_status(self, message):
         self._voice_relay.status_requested.emit(str(message))
@@ -156,6 +213,14 @@ class JarvisBridge:
             key = str(cfg.get("gemini_api_key", "")).strip()
             if key:
                 os.environ["GEMINI_API_KEY"] = key
+            for _config_key, _env_key in (
+                ("elevenlabs_api_key", "ELEVENLABS_API_KEY"),
+                ("elevenlabs_voice_id", "ELEVENLABS_VOICE_ID"),
+                ("elevenlabs_model_id", "ELEVENLABS_MODEL_ID"),
+            ):
+                _value = str(cfg.get(_config_key, "")).strip()
+                if _value and not os.getenv(_env_key):
+                    os.environ[_env_key] = _value
         except Exception:
             pass
 
@@ -209,13 +274,19 @@ class JarvisBridge:
             self.ui.write_log(f"SYS: Response provider: {provider}")
         try:
             if not self.ui.muted:
-                self._voice.speak(answer)
+                if os.getenv("JARVIS_TTS_PROVIDER", "pyttsx3").strip().casefold() == "elevenlabs":
+                    self.elevenlabs.speak_response(answer)
+                else:
+                    self._voice.speak(answer)
         except Exception:
             pass
 
     def _local_command(self, text):
         raw = text.strip()
         p = raw.casefold()
+        elevenlabs_response = self.elevenlabs.handle_command(raw)
+        if elevenlabs_response is not None:
+            return elevenlabs_response
         app_control_response = self.app_control.handle_command(raw)
         if app_control_response is not None:
             return app_control_response
@@ -226,6 +297,7 @@ class JarvisBridge:
                     "• type text <plain text> (permission + per-action confirmation)\n"
                     "• draft message on <whatsapp|telegram>: <text> (draft only)\n"
                     "• prepare call on <whatsapp|telegram> (opens app; you place call)\n"
+                    "• elevenlabs help — voice, audio generation, transcription, sound, music, usage\n"
                     "• open <google|youtube|github|gmail|wikipedia>\n"
                     "• search <query>; calculate <expression>\n"
                     "• pc status, pc lock, pc mute, pc screenshot\n"
