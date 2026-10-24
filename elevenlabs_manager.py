@@ -83,7 +83,7 @@ class ElevenLabsManager:
                 updated.append(line)
         if not found:
             updated.append(replacement)
-        path.write_text("\\n".join(updated).rstrip() + "\\n", encoding="utf-8")
+        path.write_text("\n".join(updated).rstrip() + "\n", encoding="utf-8")
 
     def _api_key(self) -> str:
         settings = self._settings()
