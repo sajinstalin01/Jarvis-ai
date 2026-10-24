@@ -65,6 +65,26 @@ class ElevenLabsManager:
             pass
         tmp.replace(API_FILE)
 
+    def _write_env_value(self, name: str, value: str) -> None:
+        """Persist a setting in the ignored local .env without duplicating its key."""
+        path = ROOT / ".env"
+        lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+        prefix = name + "="
+        replacement = prefix + value
+        found = False
+        updated = []
+        for line in lines:
+            if line.strip().startswith(prefix):
+                if not found:
+                    updated.append(replacement)
+                    found = True
+                # Drop duplicate entries so load order is deterministic.
+            else:
+                updated.append(line)
+        if not found:
+            updated.append(replacement)
+        path.write_text("\\n".join(updated).rstrip() + "\\n", encoding="utf-8")
+
     def _api_key(self) -> str:
         settings = self._settings()
         return (os.getenv("ELEVENLABS_API_KEY", "").strip()
@@ -116,6 +136,7 @@ class ElevenLabsManager:
         # Never include the entered key in the response or logs.
         self._save_settings({"elevenlabs_api_key": key})
         os.environ["ELEVENLABS_API_KEY"] = key
+        self._write_env_value("ELEVENLABS_API_KEY", key)
         name = str(account.get("first_name") or "account")
         return f"ElevenLabs API key validated and stored locally for {name}. The key is not written to chat history or Git."
 
@@ -206,6 +227,23 @@ class ElevenLabsManager:
             f"Selected file: {path}\nSize: {size_mb:.1f} MB\n\n"
             "This uploads the audio to the ElevenLabs API for processing. Audio may contain personal or sensitive information. Continue?",
         )
+
+    def speak_response(self, text: str) -> bool:
+        """Opt-in TTS for normal JARVIS replies when ELEVENLABS is the configured provider."""
+        text = str(text or "").strip()
+        if not text or not self._api_key():
+            self._on_result("ElevenLabs TTS is selected but no API key is configured.")
+            return False
+        # Normal assistant responses are capped to prevent accidental huge API charges.
+        clipped = text[:MAX_TTS_CHARACTERS]
+        if len(text) > len(clipped):
+            clipped = clipped[:MAX_TTS_CHARACTERS - 32].rstrip() + " [response shortened]"
+        self._start_job(
+            "JARVIS voice response",
+            lambda: ("Audio saved to " + (path := self._client().text_to_speech(clipped, self._voice_id(), self._model_id())), path),
+            autoplay=True,
+        )
+        return True
 
     def _start_job(self, label: str, task: Callable[[], tuple[str, str | None]], autoplay: bool = False) -> str:
         with self._lock:
