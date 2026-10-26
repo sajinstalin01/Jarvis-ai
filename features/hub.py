@@ -1,5 +1,6 @@
 """Local-first feature pack for JARVIS. Optional dependencies fail gracefully."""
 import csv, hashlib, json, os, platform, re, shutil, socket, sqlite3, subprocess, sys, time, urllib.request, zipfile
+from features.file_manager import FileManager
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,7 @@ class FeatureHub:
         self.plugins=self.root/"plugins"; self.backups=self.data/"backups"; self.staging=self.data/"restore_staging"
         with self.db() as c:
             c.executescript("CREATE TABLE IF NOT EXISTS edges(id INTEGER PRIMARY KEY,src TEXT,rel TEXT,dst TEXT,UNIQUE(src,rel,dst)); CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY,content TEXT,digest TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,at TEXT,action TEXT,result TEXT); CREATE TABLE IF NOT EXISTS timings(id INTEGER PRIMARY KEY,name TEXT,ms REAL); CREATE TABLE IF NOT EXISTS tasks(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,due_at TEXT,status TEXT NOT NULL DEFAULT 'open',created_at TEXT NOT NULL);")
+        self.file_manager = FileManager(audit=self.audit)
     def db(self):
         c=sqlite3.connect(self.dbpath,timeout=10); c.row_factory=sqlite3.Row; return c
     def audit(self,a,r="ok"):
@@ -28,6 +30,7 @@ class FeatureHub:
         s=str(cmd or "").strip(); p=s.casefold()
         try:
             if p in {"features","feature help","features help"}: return self.help()
+            if p == "fm" or p.startswith("fm ") or p in {"file manager", "file manager help"}: return self.file_manager.dispatch(s)
             if p in {"tasks","tasks list"}: return self.tasks_list()
             if p=="tasks due": return self.tasks_list(due_only=True)
             if p.startswith("tasks add "): return self.task_add(s[10:].strip())
@@ -85,6 +88,7 @@ class FeatureHub:
         return """JARVIS feature commands:
 vision screenshot / vision ocr [image-path]
 files index <folder> / files search <keywords> / files summarize <file>
+fm help (create/copy/move/rename/delete-confirm, search, organize, zip/unzip; see docs/FILE_MANAGER.md)
 network inspect / network diagnose
 dev check [python-file] / dev test [test-folder]
 graph add <source> -> <relation> -> <target> / graph search <words>
