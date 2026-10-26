@@ -32,7 +32,12 @@ class FeatureHub:
             if p=="tasks due": return self.tasks_list(due_only=True)
             if p.startswith("tasks add "): return self.task_add(s[10:].strip())
             if p.startswith("tasks done "): return self.task_update(s[11:].strip(),"done")
-            if p.startswith("tasks delete "): return self.task_update(s[13:].strip(),"delete")
+            if p.startswith("tasks delete confirm "): return self.task_update(s[20:].strip(),"delete")
+            if p.startswith("tasks delete "):
+                task_id=s[13:].strip()
+                if not task_id.isdigit(): return "Use tasks delete <id>, then confirm with tasks delete confirm <id>."
+                with self.db() as c: row=c.execute("SELECT id,title FROM tasks WHERE id=?",(int(task_id),)).fetchone()
+                return f"Please confirm deletion of task #{task_id} ({row['title']}). Enter tasks delete confirm {task_id} to proceed." if row else f"Task #{task_id} not found."
             if p in {"vision screenshot","screen capture"}: return self.screenshot()
             if p=="vision ocr" or p.startswith("vision ocr "): return self.ocr(s[10:].strip() if len(s)>10 else "")
             if p.startswith("files index "): return self.index(s[12:].strip())
@@ -90,7 +95,7 @@ agent plan <task> / agent mission <task> / agent approve: <read-only command>
 models status / models hardware / models pull <model>
 analyze <csv/json/document> / clipboard read
 project add <name>: <folder> / projects / project use <name> / project index <name|active> / find <words>
-tasks add <title> | due=YYYY-MM-DD HH:MM / tasks list / tasks due / tasks done <id> / tasks delete <id>
+tasks add <title> | due=YYYY-MM-DD HH:MM / tasks list / tasks due / tasks done <id> / tasks delete <id> (then tasks delete confirm <id>)
 backup create / backup status / backup restore stage <zip>
 profile report / companion status / proactive on|off|status|check
 Safety: no arbitrary shell commands, automatic plugin execution, or background screen/clipboard monitoring."""

@@ -51,7 +51,9 @@ class FeatureTests(unittest.TestCase):
  def test_tasks_validate_due_and_delete(self):
   self.assertIn("Invalid due date",self.h.dispatch("tasks add Bad date | due=tomorrow"))
   self.h.dispatch("tasks add Temporary task")
-  self.assertIn("deleted",self.h.dispatch("tasks delete 1"))
+  self.assertIn("Please confirm deletion",self.h.dispatch("tasks delete 1"))
+  self.assertIn("Temporary task",self.h.dispatch("tasks list"))
+  self.assertIn("deleted",self.h.dispatch("tasks delete confirm 1"))
   self.assertIn("No tasks saved",self.h.dispatch("tasks list"))
 
  def test_tasks_due_filter(self):
