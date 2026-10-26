@@ -348,6 +348,17 @@ class JarvisBridge:
             context.pop()
         memories = self.store.list_memories(limit=8)
         saved = "\n".join(f"- {m['content']}" for m in memories if m.get("content"))
+        # Add the selected local project as context, without indexing or uploading its files.
+        try:
+            feature_hub = getattr(self, "_feature_hub", None)
+            if feature_hub:
+                project_data = feature_hub._projects()
+                active_project = project_data.get("active", "")
+                project_path = project_data.get("projects", {}).get(active_project, "")
+                if active_project and project_path:
+                    saved += f"\nActive project context: {active_project} ({project_path})"
+        except Exception:
+            pass
         return context[-16:], saved
 
     def _remember_history(self, speaker, text):
