@@ -134,16 +134,55 @@ Safety: no arbitrary shell commands, automatic plugin execution, or background s
             n+=1
         ms=(time.perf_counter()-t)*1000
         with self.db() as c: c.execute("INSERT INTO timings(name,ms) VALUES(?,?)",("files.index",ms))
-        self.audit("files.index",str(n)); return f"Indexed {n} text files locally in {ms:.0f} ms. Search is keyword-ranked, not embedding-based."
+        self.audit("files.index",str(n)); return f"Indexed {n} text files locally in {ms:.0f} ms. Search uses local TF-IDF-style relevance ranking and snippets; no embeddings or cloud upload."
     def file_search(self,q):
-        terms=[x.casefold() for x in re.findall(r"[\w.-]+",q) if len(x)>1]
+        """Rank indexed local files with a dependency-free TF-IDF/BM25-like scorer."""
+        stop={"a","an","and","are","as","at","be","by","for","from","how","in","is","it","of","on","or","the","to","was","what","when","where","with"}
+        terms=[x.casefold() for x in re.findall(r"[\w.-]+",q) if len(x)>1 and x.casefold() not in stop]
         if not terms: return "Use files search <keywords>."
         with self.db() as c: rows=c.execute("SELECT path,content FROM files").fetchall()
-        hits=[]
+        if not rows: return "No indexed files yet. Run files index <folder>."
+        token_re=re.compile(r"[\w.-]{2,}",re.UNICODE)
+        docs=[]
+        df=Counter()
         for r in rows:
-            hay=(r["path"]+" "+r["content"]).casefold(); score=sum(hay.count(t) for t in terms)
-            if score: hits.append((score,r["path"]))
-        hits.sort(reverse=True); return "\n".join(f"{n} · {p}" for n,p in hits[:15]) or "No indexed matches. Run files index <folder>."
+            path=str(r["path"]); content=str(r["content"] or "")
+            body_tokens=[t.casefold() for t in token_re.findall(content)]
+            path_tokens=[t.casefold() for t in token_re.findall(Path(path).name)]
+            counts=Counter(body_tokens)
+            for term in set(terms):
+                if counts[term] or term in path_tokens: df[term]+=1
+            docs.append((path,content,counts,path_tokens,body_tokens))
+        scored=[]
+        total=len(docs)
+        for path,content,counts,path_tokens,body_tokens in docs:
+            length=max(1,len(body_tokens)); score=0.0
+            for term in set(terms):
+                tf=counts[term]
+                if tf:
+                    idf=1.0+__import__("math").log(1+(total-df[term]+0.5)/(df[term]+0.5))
+                    score+=idf*(tf*2.2)/(tf+1.2*(0.25+0.75*length/500.0))
+                if term in path_tokens: score+=3.0
+            normalized=" ".join(body_tokens)
+            phrase=" ".join(terms)
+            if len(terms)>1 and phrase in normalized: score+=2.5
+            matched=sum(1 for term in set(terms) if counts[term] or term in path_tokens)
+            if matched and score>0:
+                # Return a compact context window around the earliest matching token.
+                lines=content.splitlines()
+                snippet=""
+                for i,line in enumerate(lines):
+                    low=line.casefold()
+                    if any(t in low for t in terms):
+                        start=max(0,i-1); snippet=" ".join(x.strip() for x in lines[start:min(len(lines),i+2)] if x.strip())
+                        break
+                if not snippet:
+                    snippet=content[:220].replace("\n"," ")
+                snippet=re.sub(r"\s+"," ",snippet).strip()[:220]
+                scored.append((score,matched,path,snippet))
+        scored.sort(key=lambda x:(x[0],x[1],x[2]),reverse=True)
+        self.audit("files.search",f"results={min(15,len(scored))}")
+        return "\n".join(f"{score:.2f} · {path}\n   {snippet}" for score,_,path,snippet in scored[:15]) or "No indexed matches. Try fewer or different keywords, or run files index <folder>."
     def summarize(self,arg):
         p=Path(arg.strip('"')).expanduser()
         if not p.is_absolute(): p=self.root/p

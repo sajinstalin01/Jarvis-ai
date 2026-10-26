@@ -19,5 +19,18 @@ class FeatureTests(unittest.TestCase):
   p=self.root/"my-project"; p.mkdir()
   self.assertIn("registered",self.h.dispatch(f"project add demo: {p}").lower())
   self.assertIn("demo",self.h.dispatch("projects"))
+
+ def test_search_ranks_filename_and_returns_snippet(self):
+  docs=self.root/"docs"; docs.mkdir()
+  (docs/"jarvis-memory.md").write_text("Memory search relevance\nJARVIS local memory indexing",encoding="utf-8")
+  (docs/"misc.txt").write_text("A short unrelated note about cooking",encoding="utf-8")
+  self.h.dispatch(f"files index {docs}")
+  result=self.h.dispatch("files search jarvis memory")
+  self.assertIn("jarvis-memory.md",result)
+  self.assertIn("local memory indexing",result)
+  self.assertLess(result.index("jarvis-memory.md"),result.index("misc.txt") if "misc.txt" in result else len(result))
+ def test_search_empty_index_and_stopwords(self):
+  self.assertIn("No indexed files",self.h.dispatch("files search jarvis"))
+  self.assertIn("Use files search",self.h.dispatch("files search the and is"))
  def test_unknown_command(self): self.assertIsNone(self.h.dispatch("unrelated user prompt"))
 if __name__=="__main__": unittest.main()
