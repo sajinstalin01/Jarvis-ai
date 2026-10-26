@@ -27,8 +27,12 @@ class FileManager:
     def pair(value):
         if " :: " not in value: raise ValueError('Separate values with " :: " and quote paths containing spaces.')
         a,b=value.split(" :: ",1)
-        if not a.strip() or not b.strip(): raise ValueError("Both values are required.")
-        return a.strip(),b.strip()
+        a,b=a.strip(),b.strip()
+        if not a or not b: raise ValueError("Both values are required.")
+        # Paths may be quoted to preserve spaces; remove only a matching outer pair.
+        def unquote(v):
+            return v[1:-1] if len(v)>=2 and v[0]==v[-1] and v[0] in {"'",'"'} else v
+        return unquote(a),unquote(b)
 
     @staticmethod
     def inside(child,parent):
