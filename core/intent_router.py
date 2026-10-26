@@ -55,7 +55,7 @@ def normalize_natural_command(text: str) -> str | None:
         target = match.group(1).strip().strip('"')
         target = re.sub(r"\s+(?:for me|please|sir)[.!? ]*$", "", target, flags=re.I).strip()
         if target and len(target) <= 160 and not any(c in target for c in "\r\n"):
-            verb = "open" if match.group(1).casefold().startswith("open ") else "launch"
+            verb = "open" if raw.casefold().startswith("open ") else "launch"
             return verb + " " + target
     match = re.fullmatch(r"(?:search for|look up|find information about)\s+(.+)", raw, re.I)
     if match and len(match.group(1).strip()) <= 500:
