@@ -372,6 +372,15 @@ class JarvisBridge:
     def _local_command(self, text):
         raw = text.strip()
         p = raw.casefold()
+        try:
+            from features.hub import FeatureHub
+            if not hasattr(self, "_feature_hub"):
+                self._feature_hub = FeatureHub(ROOT, bridge=self)
+            feature_result = self._feature_hub.dispatch(raw)
+            if feature_result is not None:
+                return feature_result
+        except Exception as feature_error:
+            self.ui.write_log(f"FEATURES: {type(feature_error).__name__}: {feature_error}")
         elevenlabs_response = self.elevenlabs.handle_command(raw)
         if elevenlabs_response is not None:
             return elevenlabs_response

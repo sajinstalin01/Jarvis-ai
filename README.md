@@ -219,3 +219,31 @@ The active `jarvis.py` entry point now launches the supplied `ui.py` interface r
 - Push-to-talk uses the optional SpeechRecognition/PyAudio microphone stack. Wake-word activation is not bundled and reports as unavailable rather than pretending to listen.
 - The remote API binds to loopback by default and supports status, lock and allow-listed app launch. Do not expose it to the public internet.
 - PyQt6 Multimedia may be unavailable on stripped-down installations; the HUD handles that as an optional video feature.
+
+
+## Advanced Feature Pack
+
+Enter the command "features" in JARVIS chat for the complete command list.
+
+- Vision: "vision screenshot", "vision ocr [image-path]". OCR requires optional Pillow, pytesseract and the Tesseract system application.
+- Smart file intelligence: "files index <folder>", "files search <words>", "files summarize <file>". Search is local keyword ranking, not embedding-based semantic search.
+- Network intelligence: "network inspect", "network diagnose"; basic DNS/interface checks only, no port scanning.
+- Developer workbench: "dev check [file.py]", "dev test [folder]".
+- Knowledge graph: "graph add <source> -> <relation> -> <target>", "graph search <words>" stored locally.
+- Security center: "security audit" checks ignore rules and scans tracked text for likely secret patterns without printing values.
+- Workflow studio: "workflow studio add <name>: time; calculate 2 + 2", "workflow studio list", "workflow studio run <name>". Current workflow runner supports validated read-only steps; no drag-and-drop canvas yet.
+- Plugin SDK: "plugins list", "plugins validate"; manifests are validated but untrusted Python is never auto-executed.
+- Multi-agent review: "agent mission <task>" requests planner, risk-reviewer and verifier perspectives from the configured AI provider. It makes multiple AI requests and is advisory only. "agent plan <task>" is local-only.
+- Local model hub: "models status", "models hardware", "models pull <model>" uses Ollama at localhost:11434. Pulling can download gigabytes and only occurs after explicit command.
+- Document/data analyst: "analyze <csv/json/file>" provides numeric CSV summaries, JSON structure and supported text extraction. PDF/DOCX requires optional pypdf/python-docx.
+- Clipboard: "clipboard read" reads once; optional pyperclip required. No background clipboard monitor.
+- Project context registry: "project add <name>: <folder>", "projects", "project use <name>". Active project is registered locally but is not yet injected into every AI prompt.
+- Universal search: "find <words>" searches repo names, registered projects and indexed files.
+- Backup/recovery: "backup create", "backup status", "backup restore stage <zip>". Backups exclude secrets/local databases; restore extracts to staging and never overwrites live files automatically.
+- Performance profiler: "profile report" shows timings for instrumented operations.
+- Cross-device companion: "companion status" documents the existing authenticated remote API. A dedicated Android companion app is not included. The current API uses HTTP; do not expose it publicly.
+- Proactive context: "proactive on/off/status/check" optionally queries the active window if pygetwindow is installed. No continuous monitoring.
+- Desktop agent: "agent plan" and "agent approve:" provide planning and a small read-only action allow-list; unrestricted mouse/keyboard automation remains disabled pending a platform-specific approval layer.
+- Natural voice: existing turn-based voice remains; this feature pack does not claim full-duplex streaming speech.
+
+All feature databases and registries stay under the ignored local jarvis_data folder. Optional dependencies are not required for standard startup.
