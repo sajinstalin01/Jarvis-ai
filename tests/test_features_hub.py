@@ -32,5 +32,12 @@ class FeatureTests(unittest.TestCase):
  def test_search_empty_index_and_stopwords(self):
   self.assertIn("No indexed files",self.h.dispatch("files search jarvis"))
   self.assertIn("Use files search",self.h.dispatch("files search the and is"))
+ def test_project_index_command(self):
+  p=self.root/"project"; p.mkdir()
+  (p/"README.md").write_text("active project indexing token",encoding="utf-8")
+  self.h.dispatch(f"project add sample: {p}")
+  result=self.h.dispatch("project index active")
+  self.assertIn("Indexed 1",result)
+  self.assertIn("active project indexing token",self.h.dispatch("files search indexing"))
  def test_unknown_command(self): self.assertIsNone(self.h.dispatch("unrelated user prompt"))
 if __name__=="__main__": unittest.main()

@@ -58,6 +58,7 @@ class FeatureHub:
             if p.startswith("project add "): return self.project_add(s[12:].strip())
             if p in {"projects","project list"}: return self.project_list()
             if p.startswith("project use "): return self.project_use(s[12:].strip())
+            if p.startswith("project index "): return self.project_index(s[14:].strip())
             if p.startswith("find "): return self.find(s[5:].strip())
             if p=="backup create": return self.backup_create()
             if p=="backup status": return self.backup_status()
@@ -83,7 +84,7 @@ plugins list / plugins validate
 agent plan <task> / agent mission <task> / agent approve: <read-only command>
 models status / models hardware / models pull <model>
 analyze <csv/json/document> / clipboard read
-project add <name>: <folder> / projects / project use <name> / find <words>
+project add <name>: <folder> / projects / project use <name> / project index <name|active> / find <words>
 backup create / backup status / backup restore stage <zip>
 profile report / companion status / proactive on|off|status|check
 Safety: no arbitrary shell commands, automatic plugin execution, or background screen/clipboard monitoring."""
@@ -384,6 +385,15 @@ Safety: no arbitrary shell commands, automatic plugin execution, or background s
         d=self._projects()
         if name not in d["projects"] or not Path(d["projects"][name]).is_dir(): return "Project not found."
         d["active"]=name; self.projects_file.write_text(json.dumps(d,indent=2),encoding="utf-8"); return f"Active project context: {name} · {d['projects'][name]}"
+    def project_index(self,name):
+        d=self._projects()
+        if name.casefold()=="active": name=d.get("active","")
+        folder=d["projects"].get(name)
+        if not folder or not Path(folder).is_dir(): return "Project not found. Register it with project add <name>: <folder> first."
+        # Reindexing is explicit: this reads supported text files locally and never uploads them.
+        result=self.index(folder)
+        self.audit("project.index",name)
+        return f"Project index · {name} ({folder})\n{result}"
     def find(self,q):
         terms=[x.casefold() for x in re.findall(r"[\w.-]+",q) if len(x)>1]
         if not terms: return "Use find <words>."
