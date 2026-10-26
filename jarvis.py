@@ -382,6 +382,14 @@ class JarvisBridge:
 
     def _local_command(self, text):
         raw = text.strip()
+        try:
+            from core.intent_router import normalize_natural_command
+            routed = normalize_natural_command(raw)
+            if routed and routed.casefold() != raw.casefold():
+                self.ui.write_log("SYS: Interpreting natural-language request as a supported local command.")
+                raw = routed
+        except Exception as router_error:
+            self.ui.write_log(f"INTENT: Router unavailable ({type(router_error).__name__}); using standard commands.")
         p = raw.casefold()
         try:
             from features.hub import FeatureHub

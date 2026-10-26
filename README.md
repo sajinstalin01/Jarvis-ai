@@ -248,3 +248,16 @@ Enter the command "features" in JARVIS chat for the complete command list.
 - Natural voice: existing turn-based voice remains; this feature pack does not claim full-duplex streaming speech.
 
 All feature databases and registries stay under the ignored local jarvis_data folder. Optional dependencies are not required for standard startup.
+
+## JARVIS persona and natural-language routing
+
+The AI prompt now uses a calm, polished British-butler style, addresses the user as **Sir** by default, keeps replies concise, and requires honest action reporting. Clear natural-language requests are mapped to existing local commands before AI chat, including requests to check PC status, take a screenshot, lock the PC, open/launch an app, search, calculate, list tasks/reminders, and mark or remove a task. These aliases reuse existing permissions and safety checks; they do not add arbitrary shell execution or unrestricted computer access.
+
+Examples:
+- “Jarvis, check my PC” → `pc status`
+- “Could you open Chrome for me?” → `open chrome`
+- “Jarvis, show my tasks” → `tasks list`
+- “Mark task 3 as complete” → `tasks done 3`
+- “Jarvis, search for Python tutorials” → `search Python tutorials`
+
+Irreversible system actions, deleting files, sending messages, installing software, and changing critical settings must remain confirmation-gated. The router is intentionally conservative: unclear requests fall back to normal AI conversation instead of guessing.
