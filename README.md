@@ -46,6 +46,7 @@ Linux/macOS: `bash run_linux_mac.sh`.
 - `pc status`, `pc lock`, `pc mute`, `pc screenshot`, `pc shutdown`, `pc restart`
 - `open <app or website>` and `launch <app name>`; `open <site> search <query>`; `search <query>`
 - `calculate 12 * (8 + 2)`
+- `tasks add <title> | due=YYYY-MM-DD HH:MM`, `tasks list`, `tasks due`, `tasks done <id>`, `tasks delete <id>` (persistent local task tracker; due checks are on demand, not a background notifier)
 - `search Python speech recognition`
 - `open YouTube`, `open Google`, `open GitHub`, `open Gmail`, `open Wikipedia`
 - `launch notepad`, `launch calculator`, `launch snipping tool`, `launch powershell`, `launch device manager`

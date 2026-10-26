@@ -19,7 +19,7 @@ class FeatureHub:
         self.dbpath=self.data/"features.sqlite3"; self.projects_file=self.data/"projects.json"; self.workflow_file=self.data/"visual_workflows.json"
         self.plugins=self.root/"plugins"; self.backups=self.data/"backups"; self.staging=self.data/"restore_staging"
         with self.db() as c:
-            c.executescript("CREATE TABLE IF NOT EXISTS edges(id INTEGER PRIMARY KEY,src TEXT,rel TEXT,dst TEXT,UNIQUE(src,rel,dst)); CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY,content TEXT,digest TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,at TEXT,action TEXT,result TEXT); CREATE TABLE IF NOT EXISTS timings(id INTEGER PRIMARY KEY,name TEXT,ms REAL);")
+            c.executescript("CREATE TABLE IF NOT EXISTS edges(id INTEGER PRIMARY KEY,src TEXT,rel TEXT,dst TEXT,UNIQUE(src,rel,dst)); CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY,content TEXT,digest TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,at TEXT,action TEXT,result TEXT); CREATE TABLE IF NOT EXISTS timings(id INTEGER PRIMARY KEY,name TEXT,ms REAL); CREATE TABLE IF NOT EXISTS tasks(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,due_at TEXT,status TEXT NOT NULL DEFAULT 'open',created_at TEXT NOT NULL);")
     def db(self):
         c=sqlite3.connect(self.dbpath,timeout=10); c.row_factory=sqlite3.Row; return c
     def audit(self,a,r="ok"):
@@ -28,6 +28,11 @@ class FeatureHub:
         s=str(cmd or "").strip(); p=s.casefold()
         try:
             if p in {"features","feature help","features help"}: return self.help()
+            if p in {"tasks","tasks list"}: return self.tasks_list()
+            if p=="tasks due": return self.tasks_list(due_only=True)
+            if p.startswith("tasks add "): return self.task_add(s[10:].strip())
+            if p.startswith("tasks done "): return self.task_update(s[11:].strip(),"done")
+            if p.startswith("tasks delete "): return self.task_update(s[13:].strip(),"delete")
             if p in {"vision screenshot","screen capture"}: return self.screenshot()
             if p=="vision ocr" or p.startswith("vision ocr "): return self.ocr(s[10:].strip() if len(s)>10 else "")
             if p.startswith("files index "): return self.index(s[12:].strip())
@@ -85,6 +90,7 @@ agent plan <task> / agent mission <task> / agent approve: <read-only command>
 models status / models hardware / models pull <model>
 analyze <csv/json/document> / clipboard read
 project add <name>: <folder> / projects / project use <name> / project index <name|active> / find <words>
+tasks add <title> | due=YYYY-MM-DD HH:MM / tasks list / tasks due / tasks done <id> / tasks delete <id>
 backup create / backup status / backup restore stage <zip>
 profile report / companion status / proactive on|off|status|check
 Safety: no arbitrary shell commands, automatic plugin execution, or background screen/clipboard monitoring."""
@@ -268,6 +274,52 @@ Safety: no arbitrary shell commands, automatic plugin execution, or background s
         if not found: out.append("PASS · No obvious secret patterns in scanned tracked text (heuristic only).")
         out.append("Do not expose the authenticated HTTP remote API publicly.")
         self.audit("security.audit",str(found)); return "\n".join(out)
+    def tasks_list(self,due_only=False):
+        """List local tasks; due checks are on-demand, not background polling."""
+        with self.db() as c:
+            rows=c.execute("SELECT id,title,due_at,status FROM tasks ORDER BY CASE WHEN status='open' THEN 0 ELSE 1 END, COALESCE(due_at,'9999'), id DESC LIMIT 100").fetchall()
+        now=datetime.now()
+        out=[]
+        for r in rows:
+            due=r["due_at"]
+            overdue=False
+            if due:
+                try: overdue=datetime.fromisoformat(due)<=now and r["status"]=="open"
+                except ValueError: pass
+            if due_only and not overdue: continue
+            mark="OVERDUE" if overdue else r["status"].upper()
+            out.append(f"#{r['id']} [{mark}] {r['title']}"+(f" · due {due}" if due else " · no due date"))
+        return "\\n".join(out) or ("No overdue tasks." if due_only else "No tasks saved. Add one with tasks add <title> | due=YYYY-MM-DD HH:MM.")
+    def task_add(self,arg):
+        """Create a local task with an optional validated local-time due date."""
+        parts=[x.strip() for x in arg.split("|")]
+        title=parts[0] if parts else ""
+        if not title or len(title)>240: return "Use tasks add <title> | due=YYYY-MM-DD HH:MM (due date optional; local time)."
+        due=None
+        for part in parts[1:]:
+            if part.casefold().startswith("due="):
+                raw=part[4:].strip()
+                try: due=datetime.fromisoformat(raw).replace(tzinfo=None).isoformat(timespec="minutes")
+                except ValueError: return "Invalid due date. Use YYYY-MM-DD HH:MM in your computer's local time."
+        with self.db() as c:
+            cur=c.execute("INSERT INTO tasks(title,due_at,status,created_at) VALUES(?,?,?,?)",(title,due,"open",datetime.now().isoformat(timespec="seconds")))
+            task_id=cur.lastrowid
+        self.audit("tasks.add",str(task_id))
+        return f"Task #{task_id} saved locally: {title}"+(f" · due {due}" if due else "")
+    def task_update(self,arg,action):
+        try: task_id=int(arg.strip())
+        except (ValueError,AttributeError): return "Provide a numeric task ID, e.g. tasks done 3."
+        with self.db() as c:
+            row=c.execute("SELECT id,title,status FROM tasks WHERE id=?",(task_id,)).fetchone()
+            if not row: return f"Task #{task_id} not found."
+            if action=="done":
+                c.execute("UPDATE tasks SET status='done' WHERE id=?",(task_id,))
+                result=f"Task #{task_id} marked done: {row['title']}"
+            else:
+                c.execute("DELETE FROM tasks WHERE id=?",(task_id,))
+                result=f"Task #{task_id} deleted: {row['title']}"
+        self.audit("tasks."+action,str(task_id))
+        return result
     def _workflows(self):
         try:
             d=json.loads(_read(self.workflow_file) or "{}"); return d if isinstance(d,dict) else {}
