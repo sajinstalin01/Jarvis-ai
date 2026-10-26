@@ -366,7 +366,7 @@ Safety: no arbitrary shell commands, automatic plugin execution, or background s
                 base=self.root/folder
                 if base.is_dir():
                     for f in base.rglob("*"):
-                        if f.is_file() and not any(x in {".git",".venv,"+"__pycache__"+", "node_modules"} for x in f.parts) and f.name not in {".env","api_keys.json","app_permissions.json","jarvis.sqlite3","long_term.json"}: z.write(f,str(f.relative_to(self.root)))
+                        if f.is_file() and not any(x in {".git", ".venv", "__pycache__", "node_modules"} for x in f.parts) and f.name not in {".env","api_keys.json","app_permissions.json","jarvis.sqlite3","long_term.json"}: z.write(f,str(f.relative_to(self.root)))
             z.writestr("BACKUP-MANIFEST.json",json.dumps({"created_at":datetime.now().isoformat(),"secrets_excluded":True,"restore":"staging only"}))
         self.audit("backup.create",p.name); return f"Safe source backup created: {p}\nSecrets/local databases excluded. Restore with backup restore stage <zip>."
     def backup_status(self):
