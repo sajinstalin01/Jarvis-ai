@@ -40,21 +40,21 @@ class FeatureTests(unittest.TestCase):
   self.assertIn("Indexed 1",result)
   self.assertIn("active project indexing token",self.h.dispatch("files search indexing"))
  def test_unknown_command(self): self.assertIsNone(self.h.dispatch("unrelated user prompt"))
-    def test_tasks_persist_and_complete(self):
-        added=self.h.dispatch("tasks add Review JARVIS tests | due=2099-01-02 10:30")
-        self.assertIn("Task #1 saved locally",added)
-        self.assertIn("Review JARVIS tests",self.h.dispatch("tasks list"))
-        self.assertIn("2099-01-02T10:30",self.h.dispatch("tasks list"))
-        self.assertIn("marked done",self.h.dispatch("tasks done 1"))
-        self.assertIn("[DONE]",self.h.dispatch("tasks list"))
+ def test_tasks_persist_and_complete(self):
+  added=self.h.dispatch("tasks add Review JARVIS tests | due=2099-01-02 10:30")
+  self.assertIn("Task #1 saved locally",added)
+  self.assertIn("Review JARVIS tests",self.h.dispatch("tasks list"))
+  self.assertIn("2099-01-02T10:30",self.h.dispatch("tasks list"))
+  self.assertIn("marked done",self.h.dispatch("tasks done 1"))
+  self.assertIn("[DONE]",self.h.dispatch("tasks list"))
 
-    def test_tasks_validate_due_and_delete(self):
-        self.assertIn("Invalid due date",self.h.dispatch("tasks add Bad date | due=tomorrow"))
-        self.h.dispatch("tasks add Temporary task")
-        self.assertIn("deleted",self.h.dispatch("tasks delete 1"))
-        self.assertIn("No tasks saved",self.h.dispatch("tasks list"))
+ def test_tasks_validate_due_and_delete(self):
+  self.assertIn("Invalid due date",self.h.dispatch("tasks add Bad date | due=tomorrow"))
+  self.h.dispatch("tasks add Temporary task")
+  self.assertIn("deleted",self.h.dispatch("tasks delete 1"))
+  self.assertIn("No tasks saved",self.h.dispatch("tasks list"))
 
-    def test_tasks_due_filter(self):
-        self.h.dispatch("tasks add Future task | due=2099-01-02 10:30")
-        self.assertIn("No overdue tasks",self.h.dispatch("tasks due"))
+ def test_tasks_due_filter(self):
+  self.h.dispatch("tasks add Future task | due=2099-01-02 10:30")
+  self.assertIn("No overdue tasks",self.h.dispatch("tasks due"))
 if __name__=="__main__": unittest.main()
