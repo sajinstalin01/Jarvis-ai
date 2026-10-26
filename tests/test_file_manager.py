@@ -47,4 +47,5 @@ class FileManagerTests(unittest.TestCase):
         hub=FeatureHub(self.root)
         target=self.root/"hub.txt"
         self.assertIn("Created file",hub.dispatch(f'fm create file "{target}"'))
-\nif __name__ == "__main__": unittest.main()\n
+
+if __name__ == "__main__": unittest.main()
