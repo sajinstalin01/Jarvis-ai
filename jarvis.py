@@ -198,6 +198,8 @@ class JarvisBridge:
         self.ui = ui
         self.store = JarvisStore()
         self.app_control = AppControlManager(ui)
+        from pc_operator import PCOperator
+        self.pc_operator = PCOperator(self.app_control.permissions, self.app_control._confirm)
         self._voice_relay = _VoiceCommandRelay()
         self._voice_relay.elevenlabs_result_requested.connect(
             self._elevenlabs_result_on_ui, Qt.ConnectionType.QueuedConnection
@@ -406,6 +408,9 @@ class JarvisBridge:
         app_control_response = self.app_control.handle_command(raw)
         if app_control_response is not None:
             return app_control_response
+        pc_response = self.pc_operator.dispatch(raw)
+        if pc_response is not None:
+            return pc_response
         if p in {"help", "commands", "what can you do"}:
             return ("Available commands:\n"
                     "• launch <app> [search <query>]; apps; apps search <name>; refresh apps\n"
@@ -416,7 +421,8 @@ class JarvisBridge:
                     "• elevenlabs help — voice, audio generation, transcription, sound, music, usage\n"
                     "• open <google|youtube|github|gmail|wikipedia>\n"
                     "• search <query>; calculate <expression>\n"
-                    "• pc status, pc lock, pc mute, pc screenshot\n"
+                    "• pc status, pc lock, pc mute, pc screenshot, pc metrics, pc windows, pc monitors\n"
+                    "• pc control help — permission-gated mouse/keyboard/window/settings/power controls\n"
                     "• remember <fact>, memories [search], forget memory <id>, history [search]\n"
                     "• memory auto [on|off|status] — privacy-conscious local learning\n"
                     "• api status / api check — live health check for every configured API key\n"

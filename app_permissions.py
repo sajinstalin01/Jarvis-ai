@@ -44,6 +44,26 @@ PERMISSION_INFO = {
         "description": "Open WhatsApp or Telegram after confirmation; you choose the contact and start the call yourself.",
         "default": False,
     },
+    "desktop_input": {
+        "label": "Mouse and keyboard automation",
+        "description": "Allow explicitly confirmed foreground mouse/keyboard actions with a restricted hotkey allow-list.",
+        "default": False,
+    },
+    "window_control": {
+        "label": "Manage application windows",
+        "description": "Allow confirmed focus, minimize, maximize, restore and close requests.",
+        "default": False,
+    },
+    "system_settings": {
+        "label": "Open system settings and adjust volume",
+        "description": "Allow confirmed Windows Settings navigation and media volume keys.",
+        "default": False,
+    },
+    "system_power": {
+        "label": "Power and session actions",
+        "description": "Allow confirmed Windows shutdown, restart, sleep and logout requests.",
+        "default": False,
+    },
 }
 
 PERMISSION_ALIASES = {
@@ -66,6 +86,11 @@ PERMISSION_ALIASES = {
     "call": "prepare_call",
     "calls": "prepare_call",
     "make call": "prepare_call",
+    "mouse": "desktop_input", "keyboard": "desktop_input",
+    "mouse keyboard": "desktop_input", "desktop input": "desktop_input",
+    "window": "window_control", "windows": "window_control", "window control": "window_control",
+    "system settings": "system_settings", "volume": "system_settings",
+    "power": "system_power", "system power": "system_power",
 }
 
 
