@@ -4,10 +4,12 @@ class PCOperator:
  def __init__(self,permissions,confirm): self.permissions,self.confirm=permissions,confirm
  def dispatch(self,command):
   s=str(command or "").strip(); p=s.casefold()
-  if p in {"pc control help","pc help"}: return "pc metrics | pc windows | pc monitors; pc window focus|minimize|maximize|restore|close <title>; pc mouse click|double click|right click|move <x> <y>; pc mouse scroll <n>; pc mouse drag <x1> <y1> <x2> <y2>; pc keyboard type <text>; pc keyboard press <key>; pc keyboard hotkey <ctrl+c|ctrl+v|ctrl+z|alt+tab|win+d>; pc settings wifi|bluetooth|display|sound|brightness|power; pc volume up|down|mute; pc power shutdown|restart|sleep|logout. Sensitive actions require permissions and per-action confirmation."
+  if p in {"pc control help","pc help"}: return "pc metrics | pc windows | pc monitors; pc window focus|minimize|maximize|restore|close <title>; pc window move <title> <x> <y> <width> <height>; pc mouse click|double click|right click|move <x> <y>; pc mouse scroll <n>; pc mouse drag <x1> <y1> <x2> <y2>; pc keyboard type <text>; pc keyboard press <key>; pc keyboard hotkey <ctrl+c|ctrl+v|ctrl+z|alt+tab|win+d>; pc settings wifi|bluetooth|display|sound|brightness|power; pc volume up|down|mute; pc power shutdown|restart|sleep|logout. Sensitive actions require permissions and per-action confirmation."
   if p in {"pc metrics","pc hardware","pc resources"}: return self.metrics()
   if p in {"pc windows","pc window list","list windows"}: return self.windows()
   if p in {"pc monitors","pc displays"}: return self.monitors()
+  m=re.fullmatch(r"pc window move (.+?) (-?\\d+) (-?\\d+) (\\d+) (\\d+)",s,re.I)
+  if m:return self.window_move(m.group(1).strip(),*(int(m.group(i)) for i in range(2,6)))
   m=re.fullmatch(r"pc window (minimize|maximize|restore|close|focus) (.+)",s,re.I)
   if m:return self.window_action(m.group(1).casefold(),m.group(2).strip())
   m=re.fullmatch(r"pc mouse (click|double click|right click|move) (-?\d+) (-?\d+)",s,re.I)
@@ -64,6 +66,7 @@ class PCOperator:
   except Exception as e:return "Display listing unavailable: "+str(e)
  def window_action(self,action,q):
   try:
+   if not self.permissions.has("window_control"):return "Permission disabled. Use 'grant permission window control' first."
    matches=[w for w in self.winlist() if q.casefold() in w.title.casefold()]
    if not matches:return "No visible window matched: "+q
    if len(matches)>1:return "Multiple windows matched; use a more specific title: "+", ".join(w.title for w in matches[:8])
@@ -74,6 +77,20 @@ class PCOperator:
    {"minimize":w.minimize,"maximize":w.maximize,"restore":w.restore,"focus":w.activate,"close":w.close}[action]()
    return "Requested "+action+" for '"+w.title+"'."
   except Exception as e:return "Window action unavailable: "+str(e)
+ def window_move(self,q,x,y,width,height):
+  if width<100 or height<80 or width>10000 or height>10000 or abs(x)>20000 or abs(y)>20000:return "Window geometry outside safe limits."
+  try:
+   if not self.permissions.has("window_control"):return "Permission disabled. Use 'grant permission window control' first."
+   matches=[w for w in self.winlist() if q.casefold() in w.title.casefold()]
+   if not matches:return "No visible window matched: "+q
+   if len(matches)>1:return "Multiple windows matched; use a more specific title: "+", ".join(w.title for w in matches[:8])
+   w=matches[0]
+   if "jarvis" in w.title.casefold():return "Controlling the JARVIS window itself is blocked."
+   ok,msg=self.approve("window_control","Move/resize window",f"Move '{w.title}' to ({x},{y}), size {width}x{height}?")
+   if not ok:return msg
+   w.restore();w.moveTo(x,y);w.resizeTo(width,height)
+   return "Requested new position for '"+w.title+"'."
+  except Exception as e:return "Window positioning unavailable: "+str(e)
  def gui(self):
   import pyautogui
   pyautogui.FAILSAFE=True;pyautogui.PAUSE=.05
