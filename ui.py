@@ -4234,6 +4234,7 @@ class RemoteKeyOverlay(QWidget):
 
 
 class MainWindow(QMainWindow):
+    _command_sig    = pyqtSignal(str)  # marshals callbacks onto Qt GUI thread
     _log_sig        = pyqtSignal(str)
     _state_sig      = pyqtSignal(str)
     _content_sig    = pyqtSignal(str, str)   # (title, text) — thread-safe content display
@@ -4278,6 +4279,7 @@ class MainWindow(QMainWindow):
         )
 
         self.on_text_command   = None
+        self._command_sig.connect(self._dispatch_text_command, Qt.ConnectionType.QueuedConnection)
         self.on_remote_clicked = None   # callable: () -> (url, key) | None
         self.on_interrupt      = None   # callable: () -> None — stop JARVIS mid-speech
         self.on_voice_change   = None   # callable: () -> None — rebuild session with new voice
@@ -6186,7 +6188,13 @@ class MainWindow(QMainWindow):
             "bury the things that are.")
         msg = "\n".join(lines)
         if self.on_text_command:
-            threading.Thread(target=self.on_text_command, args=(msg,), daemon=True).start()
+            self._command_sig.emit(msg)
+
+    def _dispatch_text_command(self, text: str) -> None:
+        """Call the bridge only on the GUI thread."""
+        callback = self.on_text_command
+        if callback:
+            callback(str(text))
 
     def _build_footer(self) -> QWidget:
         w = QWidget()
@@ -6219,7 +6227,7 @@ class MainWindow(QMainWindow):
                 f"Briefly tell the user you can see the file '{p.name}' "
                 f"({size}) has been uploaded and ask what they'd like to do with it."
             )
-            threading.Thread(target=self.on_text_command, args=(msg,), daemon=True).start()
+            self._command_sig.emit(msg)
 
     def notify_phone_connected(self) -> None:
         if self._remote_overlay and self._remote_overlay.isVisible():
@@ -6835,7 +6843,7 @@ class MainWindow(QMainWindow):
 
     def _on_clipboard_action(self, cmd: str):
         if self.on_text_command:
-            threading.Thread(target=self.on_text_command, args=(cmd,), daemon=True).start()
+            self._command_sig.emit(cmd)
 
     # ────────────────────────────────────────────────────────────────────────────
 
@@ -6888,7 +6896,7 @@ class MainWindow(QMainWindow):
         self._input.clear()
         self._log.append_log(f"You: {txt}")
         if self.on_text_command:
-            threading.Thread(target=self.on_text_command, args=(txt,), daemon=True).start()
+            self._command_sig.emit(txt)
 
     def _apply_state(self, state: str):
         self.hud.state    = state
