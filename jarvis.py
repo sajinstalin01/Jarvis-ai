@@ -191,6 +191,8 @@ class _VoiceCommandRelay(QObject):
     status_requested = pyqtSignal(str)
     elevenlabs_result_requested = pyqtSignal(str)
     elevenlabs_audio_requested = pyqtSignal(str)
+    answer_requested = pyqtSignal(str, str)
+    error_requested = pyqtSignal(str)
 
 
 class JarvisBridge:
@@ -206,6 +208,12 @@ class JarvisBridge:
         )
         self._voice_relay.elevenlabs_audio_requested.connect(
             self._play_elevenlabs_audio, Qt.ConnectionType.QueuedConnection
+        )
+        self._voice_relay.answer_requested.connect(
+            self._ai_answer_on_ui, Qt.ConnectionType.QueuedConnection
+        )
+        self._voice_relay.error_requested.connect(
+            self._ai_error_on_ui, Qt.ConnectionType.QueuedConnection
         )
         self.elevenlabs = ElevenLabsManager(
             ui,
@@ -560,12 +568,11 @@ class JarvisBridge:
         return None
 
     def handle_command(self, text):
+        """Route local actions on the Qt thread; keep network AI calls off it."""
         prompt = str(text or "").strip()
         if not prompt:
             return
         self._remember_history("BOSS", prompt)
-        # Learn only narrow, explicitly stated non-sensitive facts. The opt-out is
-        # local and the full prompt is never sent to a separate memory service.
         try:
             learned = learn_from_message(self.store, prompt)
             if learned:
@@ -573,7 +580,10 @@ class JarvisBridge:
         except Exception as memory_error:
             self.ui.write_log(f"MEMORY: automatic learning skipped ({type(memory_error).__name__}).")
         self.ui.set_state("THINKING")
+        async_started = False
         try:
+            # Local PC actions may show dialogs or create Qt widgets, so run them
+            # on the GUI thread. Provider/network calls are dispatched separately.
             local = self._local_command(prompt)
             if local is not None:
                 self._remember_history("JARVIS", local)
@@ -581,13 +591,39 @@ class JarvisBridge:
                 return
             self._refresh_api_keys()
             context, memories = self._context()
-            answer, provider = generate_response(prompt, context=context, saved_memories=memories)
-            self._remember_history("JARVIS", answer)
-            self._log_answer(answer, provider)
+            threading.Thread(
+                target=self._generate_response_worker,
+                args=(prompt, context, memories),
+                daemon=True,
+                name="JarvisAIResponse",
+            ).start()
+            async_started = True
         except Exception as exc:
             self.ui.write_log("ERR: " + str(exc))
         finally:
-            self.ui.set_state("LISTENING")
+            if not async_started:
+                self.ui.set_state("LISTENING")
+
+    def _generate_response_worker(self, prompt, context, memories):
+        """Perform provider I/O off-thread and return results through Qt signals."""
+        try:
+            answer, provider = generate_response(
+                prompt, context=context, saved_memories=memories
+            )
+            self._remember_history("JARVIS", answer)
+            self._voice_relay.answer_requested.emit(str(answer), str(provider or ""))
+        except Exception as exc:
+            self._voice_relay.error_requested.emit(
+                f"{type(exc).__name__}: {exc}"
+            )
+
+    def _ai_answer_on_ui(self, answer, provider):
+        self._log_answer(str(answer), str(provider or ""))
+        self.ui.set_state("LISTENING")
+
+    def _ai_error_on_ui(self, message):
+        self.ui.write_log("ERR: " + str(message))
+        self.ui.set_state("LISTENING")
 
     def _reminder_loop(self):
         while not self._reminder_stop.wait(5):
