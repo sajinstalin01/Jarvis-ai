@@ -50,6 +50,26 @@ def normalize_natural_command(text: str) -> str | None:
     }
     if p in direct:
         return direct[p]
+    direct.update({
+        "show cpu usage": "pc metrics",
+        "show system resources": "pc metrics",
+        "check hardware usage": "pc metrics",
+        "show open windows": "pc windows",
+        "list open windows": "pc windows",
+        "show connected monitors": "pc monitors",
+    })
+    match = re.fullmatch(r"(?:set|change) volume(?: to)? (\d{1,3})(?: percent|%)?", raw, re.I)
+    if match and int(match.group(1)) <= 100:
+        return "pc volume set " + match.group(1)
+    match = re.fullmatch(r"(?:set|change) brightness(?: to)? (\d{1,3})(?: percent|%)?", raw, re.I)
+    if match and int(match.group(1)) <= 100:
+        return "pc brightness set " + match.group(1)
+    match = re.fullmatch(r"(?:switch|set) power plan to (balanced|high performance|power saver)", raw, re.I)
+    if match:
+        return "pc power plan " + match.group(1).casefold()
+    match = re.fullmatch(r"(minimize|maximize|restore|focus|close) (?:window )?(.+)", raw, re.I)
+    if match:
+        return "pc window " + match.group(1).casefold() + " " + match.group(2).strip()
     match = re.fullmatch(r"(?:open|launch|start)\s+(.+)", raw, re.I)
     if match:
         target = match.group(1).strip().strip('"')

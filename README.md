@@ -274,6 +274,12 @@ Examples: `pc metrics`, `pc windows`, `pc monitors`, `pc window focus Chrome`, `
 
 Install optional dependencies with `python -m pip install -r requirements.txt`. PyAutoGUI uses its failsafe; moving the pointer to a screen corner can abort an action. GPU telemetry uses `nvidia-smi` if available; display enumeration uses screeninfo. Settings pages open for the user to change manually. Native window management and power controls are Windows-only in this release. JARVIS does not read passwords or private app contents and is not unrestricted unattended remote-control software.
 
+## Expanded PC operator controls
+
+New commands: `pc volume set 50`, `pc brightness set 60`, `pc power plan balanced`, `pc power plan high performance`, `pc power plan power saver`, `pc window switch Chrome`, and `pc window monitor Chrome 2`. Use `pc monitors` to list display numbers first. Natural-language aliases include “set volume to 45 percent”, “show open windows”, and “switch power plan to balanced”.
+
+Volume level control uses the optional Windows-only `pycaw` package. Brightness uses Windows WMI and only works with compatible monitors. Power-plan switching uses Windows `powercfg`. Wi-Fi and Bluetooth commands open Windows Settings for manual changes rather than bypassing operating-system controls. Each setting change still requires the JARVIS permission and an action confirmation; multi-monitor window placement requires window-control permission.
+
 ## JARVIS persona and natural-language routing
 
 The AI prompt now uses a calm, polished British-butler style, addresses the user as **Sir** by default, keeps replies concise, and requires honest action reporting. Clear natural-language requests are mapped to existing local commands before AI chat, including requests to check PC status, take a screenshot, lock the PC, open/launch an app, search, calculate, list tasks/reminders, and mark or remove a task. These aliases reuse existing permissions and safety checks; they do not add arbitrary shell execution or unrestricted computer access.

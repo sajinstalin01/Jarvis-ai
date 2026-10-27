@@ -4,14 +4,16 @@ class PCOperator:
  def __init__(self,permissions,confirm): self.permissions,self.confirm=permissions,confirm
  def dispatch(self,command):
   s=str(command or "").strip(); p=s.casefold()
-  if p in {"pc control help","pc help"}: return "pc metrics | pc windows | pc monitors; pc window focus|minimize|maximize|restore|close <title>; pc window move <title> <x> <y> <width> <height>; pc mouse click|double click|right click|move <x> <y>; pc mouse scroll <n>; pc mouse drag <x1> <y1> <x2> <y2>; pc keyboard type <text>; pc keyboard press <key>; pc keyboard hotkey <ctrl+c|ctrl+v|ctrl+z|alt+tab|win+d>; pc settings wifi|bluetooth|display|sound|brightness|power; pc volume up|down|mute; pc power shutdown|restart|sleep|logout. Sensitive actions require permissions and per-action confirmation."
+  if p in {"pc control help","pc help"}: return "pc metrics | pc windows | pc monitors; pc window focus|minimize|maximize|restore|close <title>; pc window move <title> <x> <y> <width> <height>; pc window monitor <title> <display-number>; pc mouse click|double click|right click|move <x> <y>; pc mouse scroll <n>; pc mouse drag <x1> <y1> <x2> <y2>; pc keyboard type <text>; pc keyboard press <key>; pc keyboard hotkey <ctrl+c|ctrl+v|ctrl+z|alt+tab|win+d>; pc settings wifi|bluetooth|display|sound|brightness|power; pc volume up|down|mute|set <0-100>; pc brightness set <0-100>; pc power plan balanced|high performance|power saver; pc power shutdown|restart|sleep|logout. Sensitive actions require permissions and per-action confirmation."
   if p in {"pc metrics","pc hardware","pc resources"}: return self.metrics()
   if p in {"pc windows","pc window list","list windows"}: return self.windows()
   if p in {"pc monitors","pc displays"}: return self.monitors()
-  m=re.fullmatch(r"pc window move (.+?) (-?\\d+) (-?\\d+) (\\d+) (\\d+)",s,re.I)
+  m=re.fullmatch(r"pc window move (.+?) (-?\d+) (-?\d+) (\d+) (\d+)",s,re.I)
   if m:return self.window_move(m.group(1).strip(),*(int(m.group(i)) for i in range(2,6)))
-  m=re.fullmatch(r"pc window (minimize|maximize|restore|close|focus) (.+)",s,re.I)
-  if m:return self.window_action(m.group(1).casefold(),m.group(2).strip())
+  m=re.fullmatch(r"pc window monitor (.+?) (\d+)",s,re.I)
+  if m:return self.window_monitor(m.group(1).strip(),int(m.group(2)))
+  m=re.fullmatch(r"pc window (minimize|maximize|restore|close|focus|switch) (.+)",s,re.I)
+  if m:return self.window_action("focus" if m.group(1).casefold()=="switch" else m.group(1).casefold(),m.group(2).strip())
   m=re.fullmatch(r"pc mouse (click|double click|right click|move) (-?\d+) (-?\d+)",s,re.I)
   if m:return self.mouse(m.group(1).casefold(),int(m.group(2)),int(m.group(3)))
   m=re.fullmatch(r"pc mouse scroll (-?\d+)",s,re.I)
@@ -28,6 +30,12 @@ class PCOperator:
   if m:return self.settings(m.group(1).casefold())
   m=re.fullmatch(r"pc volume (up|down|mute)",s,re.I)
   if m:return self.volume(m.group(1).casefold())
+  m=re.fullmatch(r"pc volume set (\d{1,3})",s,re.I)
+  if m:return self.volume_set(int(m.group(1)))
+  m=re.fullmatch(r"pc brightness set (\d{1,3})",s,re.I)
+  if m:return self.brightness_set(int(m.group(1)))
+  m=re.fullmatch(r"pc power plan (balanced|high performance|power saver)",s,re.I)
+  if m:return self.power_plan(m.group(1).casefold())
   m=re.fullmatch(r"pc power (shutdown|restart|sleep|logout|log out)",s,re.I)
   if m:return self.power(m.group(1).casefold())
   return None
@@ -164,6 +172,64 @@ class PCOperator:
    if not ok:return msg
    g=self.gui();g.press({"up":"volumeup","down":"volumedown","mute":"volumemute"}[action]);return "Sent volume "+action+" key."
   except Exception as e:return "Volume control unavailable: "+str(e)
+ def window_monitor(self,q,index):
+  try:
+   from screeninfo import get_monitors
+   displays=get_monitors()
+   if index<1 or index>len(displays):return "Display number is out of range. Run 'pc monitors' first."
+   if not self.permissions.has("window_control"):return "Permission disabled. Use 'grant permission window control' first."
+   matches=[w for w in self.winlist() if q.casefold() in w.title.casefold()]
+   if not matches:return "No visible window matched: "+q
+   if len(matches)>1:return "Multiple windows matched; use a more specific title: "+", ".join(w.title for w in matches[:8])
+   w=matches[0]
+   if "jarvis" in w.title.casefold():return "Controlling the JARVIS window itself is blocked."
+   m=displays[index-1]
+   width=min(max(int(m.width*.8),320),int(m.width))
+   height=min(max(int(m.height*.8),240),int(m.height))
+   x=int(m.x+(m.width-width)//2); y=int(m.y+(m.height-height)//2)
+   ok,msg=self.approve("window_control","Move window to display",f"Move '{w.title}' to display {index} at ({x},{y}), size {width}x{height}?")
+   if not ok:return msg
+   w.restore();w.moveTo(x,y);w.resizeTo(width,height)
+   return f"Moved '{w.title}' to display {index}."
+  except ImportError:return "Install screeninfo to manage windows across displays."
+  except Exception as e:return "Multi-monitor placement unavailable: "+str(e)
+ def volume_set(self,value):
+  if not 0<=value<=100:return "Volume must be from 0 to 100."
+  if not self.permissions.has("system_settings"):return "Permission disabled. Use 'grant permission system settings' first."
+  ok,msg=self.approve("system_settings","Set system volume",f"Set Windows master volume to {value}%?")
+  if not ok:return msg
+  if platform.system()!="Windows":return "Direct master-volume adjustment currently requires Windows."
+  try:
+   from pycaw.pycaw import AudioUtilities
+   device=AudioUtilities.GetSpeakers()
+   device.EndpointVolume.SetMasterVolumeLevelScalar(value/100.0,None)
+   return f"System master volume set to {value}%."
+  except ImportError:return "Direct volume setting needs pycaw. Install with: python -m pip install pycaw"
+  except Exception as e:return "Could not set master volume: "+str(e)
+ def brightness_set(self,value):
+  if not 0<=value<=100:return "Brightness must be from 0 to 100."
+  if not self.permissions.has("system_settings"):return "Permission disabled. Use 'grant permission system settings' first."
+  ok,msg=self.approve("system_settings","Set display brightness",f"Set supported monitor brightness to {value}%?")
+  if not ok:return msg
+  if platform.system()!="Windows":return "Direct brightness adjustment currently requires Windows."
+  script=f"$m=Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop; if (-not $m) {{ exit 3 }}; $m | ForEach-Object {{ Invoke-CimMethod -InputObject $_ -MethodName WmiSetBrightness -Arguments @{{Timeout=1;Brightness={value}}} -ErrorAction Stop | Out-Null }}"
+  try:
+   r=subprocess.run(["powershell.exe","-NoProfile","-NonInteractive","-ExecutionPolicy","RemoteSigned","-Command",script],capture_output=True,text=True,timeout=12,check=False)
+   if r.returncode:return "Brightness control unavailable (monitor may not expose WMI brightness). Open 'pc settings brightness'. "+(r.stderr or r.stdout or "")[:250]
+   return f"Requested display brightness {value}% on WMI-compatible monitors."
+  except Exception as e:return "Could not adjust brightness: "+str(e)
+ def power_plan(self,name):
+  if name not in {"balanced","high performance","power saver"}:return "Choose balanced, high performance, or power saver."
+  if not self.permissions.has("system_settings"):return "Permission disabled. Use 'grant permission system settings' first."
+  ok,msg=self.approve("system_settings","Change Windows power plan",f"Activate the '{name}' power plan?")
+  if not ok:return msg
+  if platform.system()!="Windows":return "Power plan switching currently requires Windows."
+  aliases={"balanced":"SCHEME_BALANCED","high performance":"SCHEME_MAX","power saver":"SCHEME_MIN"}
+  try:
+   r=subprocess.run(["powercfg.exe","/setactive",aliases[name]],capture_output=True,text=True,timeout=8,check=False)
+   if r.returncode:return "Windows could not change power plan: "+(r.stderr or r.stdout or str(r.returncode))[:300]
+   return "Activated Windows power plan: "+name+"."
+  except Exception as e:return "Power-plan change failed: "+str(e)
  def power(self,action):
   action="logout" if action=="log out" else action
   ok,msg=self.approve("system_power","System power action","Request "+action.upper()+"? Save work first.")
