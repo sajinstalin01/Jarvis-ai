@@ -58,6 +58,8 @@ def normalize_natural_command(text: str) -> str | None:
         "list open windows": "pc windows",
         "show connected monitors": "pc monitors",
     })
+    if p in direct:
+        return direct[p]
     match = re.fullmatch(r"(?:set|change) volume(?: to)? (\d{1,3})(?: percent|%)?", raw, re.I)
     if match and int(match.group(1)) <= 100:
         return "pc volume set " + match.group(1)
