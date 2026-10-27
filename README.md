@@ -260,7 +260,7 @@ Grant only the capabilities you need:
 - `grant permission system power` — confirmed Windows shutdown/restart (10-second delay), sleep or logout.
 - `permissions` / `revoke permission system power` — inspect or disable capabilities.
 
-Examples: `pc metrics`, `pc windows`, `pc monitors`, `pc window focus Chrome`, `pc window minimize Notepad`, `pc mouse click 500 300`, `pc mouse scroll 4`, `pc mouse drag 100 100 400 300`, `pc keyboard type Hello there`, `pc keyboard hotkey ctrl+c`, `pc keyboard press tab`, `pc settings wifi`, `pc settings bluetooth`, `pc volume up`, `pc power sleep`, `pc control help`.
+Examples: `pc metrics`, `pc windows`, `pc monitors`, `pc window focus Chrome`, `pc window minimize Notepad`, `pc window move Chrome 0 0 1280 800`, `pc mouse click 500 300`, `pc mouse scroll 4`, `pc mouse drag 100 100 400 300`, `pc keyboard type Hello there`, `pc keyboard hotkey ctrl+c`, `pc keyboard press tab`, `pc settings wifi`, `pc settings bluetooth`, `pc volume up`, `pc power sleep`, `pc control help`.
 
 Install optional dependencies with `python -m pip install -r requirements.txt`. Mouse/keyboard commands use PyAutoGUI's failsafe; moving the pointer to a screen corner can abort an action. GPU telemetry uses `nvidia-smi` if available; display enumeration uses screeninfo. Settings pages open for the user to change manually rather than being silently toggled. Native window management and power controls are Windows-only in this release. JARVIS does not read passwords or private app contents and is not unrestricted unattended remote-control software.
 
