@@ -72,11 +72,7 @@ class AppControlManager:
             if requested.casefold() in {"all", "everything"}:
                 detail = (
                     "Enable all JARVIS-supported app capabilities?\n\n"
-                    "This enables listing installed app names, launching apps, literal foreground typing, "
-                    "WhatsApp/Telegram draft links, and opening a calling app. Typing, drafts and call preparation "
-                    "still require a separate confirmation every time. JARVIS will not press Enter, choose a contact, "
-                    "send a message, or start a call automatically. It does not gain access to all files or private "
-                    "app contents and cannot override Windows permissions."
+                    "This enables app discovery/launch, literal typing, message drafts, call preparation, confirmed mouse/keyboard actions, window management, settings navigation and power requests. Every desktop input, window, settings and power action still requires its own confirmation. JARVIS will not silently send messages or override Windows permissions."
                 )
                 if not self._confirm("Grant supported app permissions", detail):
                     return "Permission grant cancelled; existing settings are unchanged."
@@ -85,7 +81,7 @@ class AppControlManager:
 
             key = resolve_permission(requested)
             if not key:
-                return "Unknown permission. Use one of: read apps, launch apps, type text, send message, call, or all."
+                return "Unknown permission. Use read apps, launch apps, type text, send message, call, desktop input, window control, system settings, system power, or all."
             info = PERMISSION_INFO[key]
             if not self._confirm(
                 "Grant permission: " + info["label"],
@@ -101,14 +97,14 @@ class AppControlManager:
             if requested.casefold() in {"all", "everything"}:
                 if not self._confirm(
                     "Revoke all JARVIS app permissions",
-                    "Disable all app-listing, app-launching, typing, message-draft and call-preparation capabilities?",
+                    "Disable all JARVIS capabilities, including mouse/keyboard, window management, settings and system power actions?",
                 ):
                     return "Permission change cancelled."
                 self.permissions.set_all(False)
                 return "All JARVIS app capabilities are now disabled."
             key = resolve_permission(requested)
             if not key:
-                return "Unknown permission. Use: revoke permission read apps/type text/send message/call."
+                return "Unknown permission. Use read apps, launch apps, type text, send message, call, desktop input, window control, system settings or system power."
             self.permissions.set(key, False)
             return f"Permission revoked: {key}."
         return None
