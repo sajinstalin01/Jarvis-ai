@@ -21,6 +21,28 @@ class PermissionStoreTests(unittest.TestCase):
             self.assertFalse(store.has("type"))
             self.assertFalse(store.has("message"))
             self.assertFalse(store.has("call"))
+            for capability in ("desktop_input", "window_control", "system_settings", "system_power"):
+                self.assertTrue(store.has(capability), capability)
+
+
+    def test_v1_permissions_migrate_pc_controls_to_default_enabled(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "permissions.json"
+            path.write_text(json.dumps({
+                "version": 1,
+                "permissions": {
+                    "desktop_input": False, "window_control": False,
+                    "system_settings": False, "system_power": False,
+                    "type_text": False, "draft_message": False, "prepare_call": False,
+                },
+            }), encoding="utf-8")
+            store = PermissionStore(path)
+            for capability in ("desktop_input", "window_control", "system_settings", "system_power"):
+                self.assertTrue(store.has(capability), capability)
+            self.assertFalse(store.has("type_text"))
+            self.assertFalse(store.has("draft_message"))
+            self.assertFalse(store.has("prepare_call"))
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["version"], 2)
 
     def test_permission_change_persists_and_reloads(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -4,6 +4,45 @@ class PCOperator:
  def __init__(self,permissions,confirm): self.permissions,self.confirm=permissions,confirm
  def dispatch(self,command):
   s=str(command or "").strip(); p=s.casefold()
+  # Natural-language aliases are converted to the same validated command grammar.
+  aliases = (
+   (r"^(?:show|check|report) (?:my )?(?:pc|computer|system) (?:metrics|resources|hardware)$", "pc metrics"),
+   (r"^(?:show|list) (?:all )?(?:open )?windows$", "pc windows"),
+   (r"^(?:show|list) (?:my )?monitors$", "pc monitors"),
+   (r"^(?:open|show) (?:the )?(?:wi[ -]?fi|wireless) settings$", "pc settings wifi"),
+   (r"^(?:open|show) (?:the )?bluetooth settings$", "pc settings bluetooth"),
+   (r"^(?:open|show) (?:the )?display settings$", "pc settings display"),
+   (r"^(?:open|show) (?:the )?sound settings$", "pc settings sound"),
+   (r"^(?:open|show) (?:the )?power settings$", "pc settings power"),
+   (r"^(?:increase|raise|turn up) (?:the )?volume$", "pc volume up"),
+   (r"^(?:decrease|lower|turn down) (?:the )?volume$", "pc volume down"),
+   (r"^(?:mute|unmute) (?:the )?(?:system )?volume$", "pc volume mute"),
+   (r"^(?:shut ?down|power off) (?:my )?(?:pc|computer|system)$", "pc power shutdown"),
+   (r"^(?:restart|reboot) (?:my )?(?:pc|computer|system)$", "pc power restart"),
+   (r"^(?:put|send) (?:my )?(?:pc|computer|system) to sleep$", "pc power sleep"),
+   (r"^(?:log ?out|sign out) (?:of )?(?:my )?(?:pc|computer|system)$", "pc power logout"),
+  )
+  for pattern, target in aliases:
+   if re.fullmatch(pattern, p, re.I):
+    s=target; p=s.casefold(); break
+  m=re.fullmatch(r"(?:click|left click) (?:at )?(-?\d+)\s*[, ]\s*(-?\d+)",p,re.I)
+  if m: s=f"pc mouse click {m.group(1)} {m.group(2)}"; p=s.casefold()
+  m=re.fullmatch(r"double click (?:at )?(-?\d+)\s*[, ]\s*(-?\d+)",p,re.I)
+  if m: s=f"pc mouse double click {m.group(1)} {m.group(2)}"; p=s.casefold()
+  m=re.fullmatch(r"right click (?:at )?(-?\d+)\s*[, ]\s*(-?\d+)",p,re.I)
+  if m: s=f"pc mouse right click {m.group(1)} {m.group(2)}"; p=s.casefold()
+  m=re.fullmatch(r"(?:move|put) (?:the )?mouse to (-?\d+)\s*[, ]\s*(-?\d+)",p,re.I)
+  if m: s=f"pc mouse move {m.group(1)} {m.group(2)}"; p=s.casefold()
+  m=re.fullmatch(r"scroll (up|down)(?: (\d+))?",p,re.I)
+  if m: s=f"pc mouse scroll {int(m.group(2) or 3)*(1 if m.group(1).casefold()=='up' else -1)}"; p=s.casefold()
+  m=re.fullmatch(r"set (?:the )?volume to (\d{1,3})%?",p,re.I)
+  if m: s=f"pc volume set {m.group(1)}"; p=s.casefold()
+  m=re.fullmatch(r"set (?:the )?brightness to (\d{1,3})%?",p,re.I)
+  if m: s=f"pc brightness set {m.group(1)}"; p=s.casefold()
+  m=re.fullmatch(r"(minimize|maximize|restore|close|focus|switch to) (?:the )?(?:window )?(.+)",s,re.I)
+  if m:
+   action="focus" if m.group(1).casefold()=="switch to" else m.group(1).casefold()
+   s=f"pc window {action} {m.group(2).strip()}"; p=s.casefold()
   if p in {"pc control help","pc help"}: return "pc metrics | pc windows | pc monitors; pc window focus|minimize|maximize|restore|close <title>; pc window move <title> <x> <y> <width> <height>; pc window monitor <title> <display-number>; pc mouse click|double click|right click|move <x> <y>; pc mouse scroll <n>; pc mouse drag <x1> <y1> <x2> <y2>; pc keyboard type <text>; pc keyboard press <key>; pc keyboard hotkey <ctrl+c|ctrl+v|ctrl+z|alt+tab|win+d>; pc settings wifi|bluetooth|display|sound|brightness|power; pc volume up|down|mute|set <0-100>; pc brightness set <0-100>; pc power plan balanced|high performance|power saver; pc power shutdown|restart|sleep|logout. Sensitive actions require permissions and per-action confirmation."
   if p in {"pc metrics","pc hardware","pc resources"}: return self.metrics()
   if p in {"pc windows","pc window list","list windows"}: return self.windows()

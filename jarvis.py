@@ -191,6 +191,8 @@ class _VoiceCommandRelay(QObject):
     status_requested = pyqtSignal(str)
     elevenlabs_result_requested = pyqtSignal(str)
     elevenlabs_audio_requested = pyqtSignal(str)
+    log_requested = pyqtSignal(str)
+    reminder_speech_requested = pyqtSignal(str)
     answer_requested = pyqtSignal(str, str)
     error_requested = pyqtSignal(str)
 
@@ -209,6 +211,8 @@ class JarvisBridge:
         self._voice_relay.elevenlabs_audio_requested.connect(
             self._play_elevenlabs_audio, Qt.ConnectionType.QueuedConnection
         )
+        self._voice_relay.log_requested.connect(self._log_on_ui, Qt.ConnectionType.QueuedConnection)
+        self._voice_relay.reminder_speech_requested.connect(self._speak_reminder_on_ui, Qt.ConnectionType.QueuedConnection)
         self._voice_relay.answer_requested.connect(
             self._ai_answer_on_ui, Qt.ConnectionType.QueuedConnection
         )
@@ -224,9 +228,10 @@ class JarvisBridge:
         self._elevenlabs_audio_output = None
         if QMediaPlayer is not None and QAudioOutput is not None:
             try:
-                _parent_window = getattr(ui, "_win", None)
-                self._elevenlabs_player = QMediaPlayer(_parent_window)
-                self._elevenlabs_audio_output = QAudioOutput(_parent_window)
+                # Keep Qt multimedia objects parentless and owned by this bridge.
+                # They are created on the GUI thread and retained for its lifetime.
+                self._elevenlabs_player = QMediaPlayer()
+                self._elevenlabs_audio_output = QAudioOutput()
                 self._elevenlabs_player.setAudioOutput(self._elevenlabs_audio_output)
             except Exception as _audio_exc:
                 print(f"[ElevenLabs] Qt audio playback unavailable: {_audio_exc}")
@@ -257,6 +262,18 @@ class JarvisBridge:
         self.ui.write_log("SYS: PyQt6 HUD connected to Groq/Gemini, local memory, app launcher and PC controls.")
         if not (os.getenv("GROQ_API_KEY") or os.getenv("GEMINI_API_KEY")):
             self.ui.write_log("SYS: Add GROQ_API_KEY or GEMINI_API_KEY to .env, or enter a Gemini key in setup.")
+
+    def _log_on_ui(self, message):
+        """Only mutate Qt widgets from the GUI thread."""
+        self.ui.write_log(str(message))
+
+    def _speak_reminder_on_ui(self, message):
+        """Dispatch reminder speech on the Qt thread, never the timer worker."""
+        try:
+            if not self.ui.muted:
+                self._voice.speak("Reminder: " + str(message))
+        except Exception as exc:
+            self._voice_relay.log_requested.emit("VOICE: Reminder speech unavailable: " + str(exc))
 
     def _elevenlabs_result_on_ui(self, message):
         self.ui.write_log("ELEVENLABS: " + str(message))
@@ -630,11 +647,10 @@ class JarvisBridge:
             try:
                 due = self.store.due_reminders()
                 for reminder in due:
-                    self.ui.write_log(f"REMINDER: {reminder['message']}")
-                    try:
-                        if not self.ui.muted: self._voice.speak("Reminder: " + reminder["message"])
-                    except Exception:
-                        pass
+                    # This loop runs on a worker thread: queue UI and speech work.
+                    message = str(reminder.get("message", ""))
+                    self._voice_relay.log_requested.emit("REMINDER: " + message)
+                    self._voice_relay.reminder_speech_requested.emit(message)
             except Exception:
                 pass
 

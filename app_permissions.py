@@ -47,22 +47,22 @@ PERMISSION_INFO = {
     "desktop_input": {
         "label": "Mouse and keyboard automation",
         "description": "Allow explicitly confirmed foreground mouse/keyboard actions with a restricted hotkey allow-list.",
-        "default": False,
+        "default": True,
     },
     "window_control": {
         "label": "Manage application windows",
         "description": "Allow confirmed focus, minimize, maximize, restore and close requests.",
-        "default": False,
+        "default": True,
     },
     "system_settings": {
         "label": "Open system settings and adjust volume",
         "description": "Allow confirmed Windows Settings navigation and media volume keys.",
-        "default": False,
+        "default": True,
     },
     "system_power": {
         "label": "Power and session actions",
         "description": "Allow confirmed Windows shutdown, restart, sleep and logout requests.",
-        "default": False,
+        "default": True,
     },
 }
 
@@ -106,7 +106,7 @@ def resolve_permission(value: str) -> str | None:
 
 
 class PermissionStore:
-    """Small local opt-in store. Unsafe capabilities default to disabled."""
+    """Local capability store; PC-control defaults are enabled with per-action confirmation."""
 
     def __init__(self, path: str | os.PathLike | None = None):
         self.path = Path(path) if path is not None else DEFAULT_PERMISSION_FILE
@@ -118,11 +118,18 @@ class PermissionStore:
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
             saved = data.get("permissions", {}) if isinstance(data, dict) else {}
+            try:
+                version = int(data.get("version", 1)) if isinstance(data, dict) else 1
+            except (TypeError, ValueError):
+                version = 1
             if isinstance(saved, dict):
                 for key in PERMISSION_INFO:
-                    # Persisted values must be actual booleans, not arbitrary truthy strings.
                     if isinstance(saved.get(key), bool):
                         self._permissions[key] = saved[key]
+            if version < 2:
+                for key in ("desktop_input", "window_control", "system_settings", "system_power"):
+                    self._permissions[key] = True
+                self._save()
         except (OSError, ValueError, TypeError):
             # If settings are missing/corrupt, use safe defaults.
             return
@@ -131,7 +138,7 @@ class PermissionStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
         tmp.write_text(
-            json.dumps({"version": 1, "permissions": self._permissions}, indent=2) + "\n",
+            json.dumps({"version": 2, "permissions": self._permissions}, indent=2) + "\n",
             encoding="utf-8",
         )
         tmp.replace(self.path)
@@ -159,8 +166,10 @@ class PermissionStore:
             state = "ON" if self._permissions[key] else "OFF"
             rows.append(f"{state:3} · {key} — {info['label']}\n      {info['description']}")
         rows.append(
-            "\nJARVIS permissions do not override Windows or app permissions. "
-            "Private app contents, arbitrary file access, unattended calls, and automatic message sending are not enabled."
+            "\nDesktop input, window control, system settings and system power are enabled by default. "
+            "Each action still asks for confirmation; this is not a Windows administrator/UAC grant. "
+            "Typing, message drafts and calls remain opt-in. Private app contents, arbitrary file access, "
+            "unattended calls and automatic message sending are not enabled."
         )
         return "\n".join(rows)
 

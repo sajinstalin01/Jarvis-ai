@@ -83,6 +83,8 @@ class AppControlManager:
             if not key:
                 return "Unknown permission. Use read apps, launch apps, type text, send message, call, desktop input, window control, system settings, system power, or all."
             info = PERMISSION_INFO[key]
+            if self.permissions.has(key):
+                return f"Permission already enabled: {key}. No manual grant is needed; individual actions still require confirmation.\n{info['description']}"
             if not self._confirm(
                 "Grant permission: " + info["label"],
                 info["description"] + "\n\nEnable this JARVIS capability? This does not override Windows or app permissions.",

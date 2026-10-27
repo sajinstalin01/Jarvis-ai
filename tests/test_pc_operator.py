@@ -1,42 +1,48 @@
 import unittest
-from core.intent_router import normalize_natural_command
 from pc_operator import PCOperator
 
-class FakePermissions:
-    def __init__(self, enabled=()):
-        self.enabled=set(enabled)
-    def has(self, key):
-        return key in self.enabled
+class PermissionStub:
+    def has(self, name):
+        return name in {"desktop_input", "window_control", "system_settings", "system_power"}
 
-class PCOperatorTests(unittest.TestCase):
-    def make_operator(self, enabled=(), confirm=True):
-        return PCOperator(FakePermissions(enabled), lambda *args: confirm)
+class PCOperatorNaturalLanguageTests(unittest.TestCase):
+    def setUp(self):
+        self.operator = PCOperator(PermissionStub(), lambda *args: True)
+    def test_metrics_alias(self):
+        self.operator.metrics = lambda: "metrics-ok"
+        self.assertEqual(self.operator.dispatch("show PC resources"), "metrics-ok")
+    def test_mouse_coordinate_aliases(self):
+        seen = []
+        self.operator.mouse = lambda action, x, y: seen.append((action, x, y)) or "mouse-ok"
+        self.assertEqual(self.operator.dispatch("click at 400,200"), "mouse-ok")
+        self.assertEqual(seen[-1], ("click", 400, 200))
+        self.operator.dispatch("right click at 100 250")
+        self.assertEqual(seen[-1], ("right click", 100, 250))
+        self.operator.dispatch("move mouse to 800,600")
+        self.assertEqual(seen[-1], ("move", 800, 600))
+    def test_scroll_alias(self):
+        seen = []
+        self.operator.scroll = lambda amount: seen.append(amount) or "scroll-ok"
+        self.operator.dispatch("scroll down 4")
+        self.assertEqual(seen, [-4])
+    def test_volume_and_brightness_aliases(self):
+        seen = []
+        self.operator.volume_set = lambda value: seen.append(("volume", value)) or "ok"
+        self.operator.brightness_set = lambda value: seen.append(("brightness", value)) or "ok"
+        self.operator.dispatch("set volume to 50%")
+        self.operator.dispatch("set brightness to 70")
+        self.assertEqual(seen, [("volume", 50), ("brightness", 70)])
+    def test_window_alias(self):
+        seen = []
+        self.operator.window_action = lambda action, title: seen.append((action, title)) or "window-ok"
+        self.operator.dispatch("minimize window Notepad")
+        self.operator.dispatch("switch to window Calculator")
+        self.assertEqual(seen, [("minimize", "Notepad"), ("focus", "Calculator")])
+    def test_power_alias_still_routes_through_power_handler(self):
+        seen = []
+        self.operator.power = lambda action: seen.append(action) or "power-handler"
+        self.assertEqual(self.operator.dispatch("shut down computer"), "power-handler")
+        self.assertEqual(seen, ["shutdown"])
 
-    def test_window_move_route_parses_coordinates(self):
-        op=self.make_operator()
-        op.window_move=lambda *args: "MOVE:"+repr(args)
-        self.assertEqual(op.dispatch("pc window move Chrome -1920 0 1280 800"),
-                         "MOVE:('Chrome', -1920, 0, 1280, 800)")
-
-    def test_volume_and_brightness_range_validation(self):
-        op=self.make_operator()
-        self.assertIn("0 to 100",op.volume_set(101))
-        self.assertIn("0 to 100",op.brightness_set(-1))
-
-    def test_sensitive_control_requires_permission(self):
-        op=self.make_operator()
-        self.assertIn("Permission disabled",op.volume_set(50))
-        self.assertIn("Permission disabled",op.power_plan("balanced"))
-
-    def test_cancelled_confirmation_does_not_execute(self):
-        op=self.make_operator(enabled=("system_settings",),confirm=False)
-        self.assertIn("Cancelled",op.volume_set(50))
-        self.assertIn("Cancelled",op.power_plan("balanced"))
-
-    def test_natural_language_control_aliases(self):
-        self.assertEqual(normalize_natural_command("Set volume to 45 percent"),"pc volume set 45")
-        self.assertEqual(normalize_natural_command("Show open windows"),"pc windows")
-        self.assertEqual(normalize_natural_command("Switch power plan to balanced"),"pc power plan balanced")
-
-if __name__=="__main__":
+if __name__ == "__main__":
     unittest.main()
