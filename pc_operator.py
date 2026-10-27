@@ -80,52 +80,58 @@ class PCOperator:
   return pyautogui
  def mouse(self,a,x,y):
   try:
-   g=self.gui();w,h=g.size()
-   if not(0<=x<w and 0<=y<h):return "Coordinates must be inside the reported screen (%dx%d)."%(w,h)
+   if not self.permissions.has("desktop_input"):return "Permission disabled. Use 'grant permission desktop input' first."
    ok,msg=self.approve("desktop_input","Mouse action",f"{a} at ({x},{y})?")
    if not ok:return msg
+   g=self.gui();w,h=g.size()
+   if not(0<=x<w and 0<=y<h):return "Coordinates must be inside the reported screen (%dx%d)."%(w,h)
    {"click":lambda:g.click(x,y),"double click":lambda:g.doubleClick(x,y),"right click":lambda:g.rightClick(x,y),"move":lambda:g.moveTo(x,y,duration=.15)}[a]()
    return "Mouse "+a+" action sent."
   except Exception as e:return "Mouse action failed safely: "+str(e)
  def scroll(self,n):
   if n==0 or abs(n)>20:return "Scroll amount must be 1–20 units in either direction."
   try:
-   g=self.gui();ok,msg=self.approve("desktop_input","Scroll",f"Scroll {n} units in foreground window?")
+   if not self.permissions.has("desktop_input"):return "Permission disabled. Use 'grant permission desktop input' first."
+   ok,msg=self.approve("desktop_input","Scroll",f"Scroll {n} units in foreground window?")
    if not ok:return msg
-   g.scroll(n);return "Scroll action sent."
+   g=self.gui();g.scroll(n);return "Scroll action sent."
   except Exception as e:return "Scroll failed safely: "+str(e)
  def drag(self,x1,y1,x2,y2):
   try:
-   g=self.gui();w,h=g.size()
-   if not all(0<=x<w and 0<=y<h for x,y in ((x1,y1),(x2,y2))):return "Drag coordinates are outside screen."
+   if not self.permissions.has("desktop_input"):return "Permission disabled. Use 'grant permission desktop input' first."
    ok,msg=self.approve("desktop_input","Mouse drag",f"Drag from ({x1},{y1}) to ({x2},{y2})?")
    if not ok:return msg
+   g=self.gui();w,h=g.size()
+   if not all(0<=x<w and 0<=y<h for x,y in ((x1,y1),(x2,y2))):return "Drag coordinates are outside screen."
    g.moveTo(x1,y1);g.dragTo(x2,y2,duration=.4);return "Drag action sent."
   except Exception as e:return "Drag failed safely: "+str(e)
  def type_text(self,text):
   if not text or len(text)>1000 or "\n" in text or "\r" in text or any(ord(c)<32 and c!="\t" for c in text):return "Text must be 1–1,000 single-line characters."
   try:
-   g=self.gui();ok,msg=self.approve("desktop_input","Type text","Type literal text in foreground app?\n\n"+text[:500]+"\n\nJARVIS will not press Enter.")
+   if not self.permissions.has("desktop_input"):return "Permission disabled. Use 'grant permission desktop input' first."
+   ok,msg=self.approve("desktop_input","Type text","Type literal text in foreground app?\n\n"+text[:500]+"\n\nJARVIS will not press Enter.")
    if not ok:return msg
-   g.write(text,interval=.01);return "Typed %d characters; Enter was not pressed."%len(text)
+   g=self.gui();g.write(text,interval=.01);return "Typed %d characters; Enter was not pressed."%len(text)
   except Exception as e:return "Typing failed safely: "+str(e)
  def hotkey(self,value):
   allowed={"ctrl+c":("ctrl","c"),"ctrl+v":("ctrl","v"),"ctrl+x":("ctrl","x"),"ctrl+a":("ctrl","a"),"ctrl+z":("ctrl","z"),"ctrl+y":("ctrl","y"),"ctrl+s":("ctrl","s"),"ctrl+f":("ctrl","f"),"ctrl+p":("ctrl","p"),"ctrl+tab":("ctrl","tab"),"ctrl+shift+tab":("ctrl","shift","tab"),"alt+tab":("alt","tab"),"shift+tab":("shift","tab"),"win+d":("win","d"),"win+e":("win","e")}
   key="+".join(x.strip().casefold() for x in value.split("+"))
   if key not in allowed:return "Hotkey blocked. Allowed: "+", ".join(sorted(allowed))
   try:
-   g=self.gui();ok,msg=self.approve("desktop_input","Keyboard shortcut","Send "+key+" to foreground app?")
+   if not self.permissions.has("desktop_input"):return "Permission disabled. Use 'grant permission desktop input' first."
+   ok,msg=self.approve("desktop_input","Keyboard shortcut","Send "+key+" to foreground app?")
    if not ok:return msg
-   g.hotkey(*allowed[key]);return "Sent hotkey "+key+"."
+   g=self.gui();g.hotkey(*allowed[key]);return "Sent hotkey "+key+"."
   except Exception as e:return "Hotkey failed safely: "+str(e)
  def press_key(self,value):
   allowed={"enter","tab","esc","escape","space","backspace","delete","up","down","left","right","home","end","pageup","pagedown","f5"};key=value.casefold()
   if key not in allowed:return "Key blocked. Allowed: "+", ".join(sorted(allowed))
   if key=="escape":key="esc"
   try:
-   g=self.gui();ok,msg=self.approve("desktop_input","Press key","Press "+key+" in foreground app?")
+   if not self.permissions.has("desktop_input"):return "Permission disabled. Use 'grant permission desktop input' first."
+   ok,msg=self.approve("desktop_input","Press key","Press "+key+" in foreground app?")
    if not ok:return msg
-   g.press(key);return "Pressed "+key+"."
+   g=self.gui();g.press(key);return "Pressed "+key+"."
   except Exception as e:return "Key press failed safely: "+str(e)
  def settings(self,page):
   if platform.system()!="Windows":return "Settings shortcuts require Windows 10/11."
@@ -136,9 +142,10 @@ class PCOperator:
   except Exception as e:return "Could not open settings: "+str(e)
  def volume(self,action):
   try:
-   g=self.gui();ok,msg=self.approve("system_settings","System volume","Send volume "+action+" key?")
+   if not self.permissions.has("system_settings"):return "Permission disabled. Use 'grant permission system settings' first."
+   ok,msg=self.approve("system_settings","System volume","Send volume "+action+" key?")
    if not ok:return msg
-   g.press({"up":"volumeup","down":"volumedown","mute":"volumemute"}[action]);return "Sent volume "+action+" key."
+   g=self.gui();g.press({"up":"volumeup","down":"volumedown","mute":"volumemute"}[action]);return "Sent volume "+action+" key."
   except Exception as e:return "Volume control unavailable: "+str(e)
  def power(self,action):
   action="logout" if action=="log out" else action

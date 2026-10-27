@@ -264,6 +264,16 @@ Examples: `pc metrics`, `pc windows`, `pc monitors`, `pc window focus Chrome`, `
 
 Install optional dependencies with `python -m pip install -r requirements.txt`. Mouse/keyboard commands use PyAutoGUI's failsafe; moving the pointer to a screen corner can abort an action. GPU telemetry uses `nvidia-smi` if available; display enumeration uses screeninfo. Settings pages open for the user to change manually rather than being silently toggled. Native window management and power controls are Windows-only in this release. JARVIS does not read passwords or private app contents and is not unrestricted unattended remote-control software.
 
+## Permission-gated PC operator
+
+Windows 10/11 is the primary target. Mouse/keyboard input, window management, system settings navigation and power actions are disabled until individually granted and still ask for confirmation for every action. Operating-system permission and UAC boundaries remain in force.
+
+Grant only the capabilities you need: `grant permission desktop input`, `grant permission window control`, `grant permission system settings`, or `grant permission system power`. Use `permissions` to inspect access and `revoke permission system power` to disable power actions.
+
+Examples: `pc metrics`, `pc windows`, `pc monitors`, `pc window focus Chrome`, `pc window minimize Notepad`, `pc mouse click 500 300`, `pc mouse scroll 4`, `pc mouse drag 100 100 400 300`, `pc keyboard type Hello there`, `pc keyboard hotkey ctrl+c`, `pc keyboard press tab`, `pc settings wifi`, `pc settings bluetooth`, `pc volume up`, `pc power sleep`, `pc control help`.
+
+Install optional dependencies with `python -m pip install -r requirements.txt`. PyAutoGUI uses its failsafe; moving the pointer to a screen corner can abort an action. GPU telemetry uses `nvidia-smi` if available; display enumeration uses screeninfo. Settings pages open for the user to change manually. Native window management and power controls are Windows-only in this release. JARVIS does not read passwords or private app contents and is not unrestricted unattended remote-control software.
+
 ## JARVIS persona and natural-language routing
 
 The AI prompt now uses a calm, polished British-butler style, addresses the user as **Sir** by default, keeps replies concise, and requires honest action reporting. Clear natural-language requests are mapped to existing local commands before AI chat, including requests to check PC status, take a screenshot, lock the PC, open/launch an app, search, calculate, list tasks/reminders, and mark or remove a task. These aliases reuse existing permissions and safety checks; they do not add arbitrary shell execution or unrestricted computer access.
