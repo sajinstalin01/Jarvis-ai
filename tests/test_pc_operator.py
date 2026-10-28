@@ -44,5 +44,16 @@ class PCOperatorNaturalLanguageTests(unittest.TestCase):
         self.assertEqual(self.operator.dispatch("shut down computer"), "power-handler")
         self.assertEqual(seen, ["shutdown"])
 
+    def test_low_risk_actions_skip_confirmation_but_risky_actions_keep_it(self):
+        prompts = []
+        self.operator.confirm = lambda *args: prompts.append(args) or False
+        ok, _ = self.operator.approve("desktop_input", "Scroll", "scroll", confirmation_required=False)
+        self.assertTrue(ok)
+        self.assertEqual(prompts, [])
+        ok, message = self.operator.approve("desktop_input", "Type", "type text", confirmation_required=True)
+        self.assertFalse(ok)
+        self.assertIn("Cancelled", message)
+        self.assertEqual(len(prompts), 1)
+
 if __name__ == "__main__":
     unittest.main()

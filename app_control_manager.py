@@ -6,7 +6,7 @@ import re
 import urllib.parse
 import webbrowser
 
-from PyQt6.QtCore import QTimer
+from PyQt6.QtCore import QThread, QTimer
 from PyQt6.QtWidgets import QMessageBox
 
 from app_permissions import (
@@ -39,6 +39,10 @@ class AppControlManager:
     def _confirm(self, title: str, detail: str) -> bool:
         window = getattr(self.ui, "_win", None)
         if window is None:
+            return False
+        # QWidget dialogs are GUI-thread-only. Fail closed when a command
+        # arrives from a remote/worker thread rather than touching Qt widgets.
+        if QThread.currentThread() != window.thread():
             return False
         answer = QMessageBox.question(
             window,
