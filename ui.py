@@ -6278,8 +6278,9 @@ class MainWindow(QMainWindow):
     def _open_font_collection(self):
         """Open the font picker attached by the application bootstrap, if present."""
         try:
+            from PyQt6.QtWidgets import QApplication
             from font_manager import open_font_collection
-            open_font_collection(self)
+            open_font_collection(self, QApplication.instance())
         except Exception as exc:
             self._log.append_log(f"SYS: Font collection is available from the Appearance menu — {exc}")
 

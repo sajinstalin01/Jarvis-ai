@@ -464,3 +464,13 @@ def _show_manager(window, app) -> None:
     dialog = FontManagerDialog(app, window, parent=window)
     window._font_manager_dialog = dialog
     dialog.exec()
+
+
+def open_font_collection(window, app=None) -> None:
+    """Open the existing font manager from the Settings Hub or another UI entry."""
+    if app is None:
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance()
+    if app is None:
+        raise RuntimeError("JARVIS Qt application is not running.")
+    _show_manager(window, app)
