@@ -469,11 +469,10 @@ class HudCanvas(QWidget):
         self._tmr.start(16)
 
     def glance(self, dx: float, dy: float, hold: float = 1.1) -> None:
-        """Ask the avatar to look somewhere for a moment (see HoloAvatar.glance)."""
+        """Thread-safe: queue avatar animation changes to the Qt GUI thread."""
         try:
-            if self._avatar is not None:
-                self._avatar.glance(dx, dy, hold)
-        except Exception:
+            self._win._glance_sig.emit(float(dx), float(dy), float(hold))
+        except (RuntimeError, TypeError, ValueError):
             pass
 
     def push_visemes(self, frames, hop: float, at: float) -> None:
@@ -4249,6 +4248,12 @@ class MainWindow(QMainWindow):
     _clipboard_sig  = pyqtSignal(str)        # clipboard text changed (thread-safe)
     _confirm_sig    = pyqtSignal(str, str)   # (title, detail) — irreversible-action gate
     _confirm_hide_sig = pyqtSignal()
+    # Audio/animation callbacks may originate in speech workers. Queue all
+    # QWidget/HudCanvas mutations back onto the Qt GUI thread.
+    _audio_level_sig = pyqtSignal(float)
+    _glance_sig = pyqtSignal(float, float, float)
+    _visemes_sig = pyqtSignal(object, float, float)
+    _phone_connected_sig = pyqtSignal()
     _wake_dl_sig    = pyqtSignal(bool, str)  # wake-word install finished (ok, message)
     _quiz_sig       = pyqtSignal(str, object, object)  # (topic, questions, grader)
     _quiz_hide_sig  = pyqtSignal()
@@ -4519,8 +4524,12 @@ class MainWindow(QMainWindow):
         self._metric_tmr.start(2000)
         self._update_metrics()
 
-        self._log_sig.connect(self._log.append_log)
-        self._state_sig.connect(self._apply_state)
+        self._log_sig.connect(self._log.append_log, Qt.ConnectionType.QueuedConnection)
+        self._state_sig.connect(self._apply_state, Qt.ConnectionType.QueuedConnection)
+        self._audio_level_sig.connect(self.hud.set_audio_level, Qt.ConnectionType.QueuedConnection)
+        self._glance_sig.connect(self.hud.glance, Qt.ConnectionType.QueuedConnection)
+        self._visemes_sig.connect(self.hud.push_visemes, Qt.ConnectionType.QueuedConnection)
+        self._phone_connected_sig.connect(self._notify_phone_connected_on_ui, Qt.ConnectionType.QueuedConnection)
         self._content_sig.connect(self._show_content)
         self._reconfig_sig.connect(self._show_setup)
         self._camera_sig.connect(self._show_camera_frame)
@@ -6241,6 +6250,11 @@ class MainWindow(QMainWindow):
         if self._remote_overlay and self._remote_overlay.isVisible():
             self._remote_overlay.mark_connected()
 
+    def _notify_phone_connected_on_ui(self) -> None:
+        """GUI-thread slot for device connection notifications."""
+        if self._remote_overlay and self._remote_overlay.isVisible():
+            self._remote_overlay.mark_connected()
+
     def _open_settings_hub(self):
         """Open the single categorized settings and feature hub."""
         try:
@@ -7110,12 +7124,10 @@ class JarvisUI:
         self._win.wake_get_state = cb
 
     def set_audio_level(self, level: float) -> None:
-        """Thread-safe: feed a 0.0–1.0 live audio level to the HUD waveform.
-        Called from the audio threads; a plain float store is atomic under the
-        GIL, so no signal/lock is needed for this cosmetic value."""
+        """Thread-safe: queue audio waveform updates to the Qt GUI thread."""
         try:
-            self._win.hud.set_audio_level(level)
-        except Exception:
+            self._win._audio_level_sig.emit(float(level))
+        except (RuntimeError, TypeError, ValueError):
             pass
 
     def glance(self, dx: float, dy: float, hold: float = 1.1) -> None:
@@ -7143,16 +7155,18 @@ class JarvisUI:
         self._win.on_push_to_talk = cb
 
     def push_visemes(self, frames, hop: float, at: float) -> None:
-        """Thread-safe: post a schedule of (level, openness, width) mouth frames
-        for JARVIS's own speech. `at` is the wall-clock time the batch begins to
-        sound, not the time of the call. See HudCanvas.push_visemes()."""
+        """Thread-safe: queue speech animation frames to the Qt GUI thread."""
         try:
-            self._win.hud.push_visemes(frames, hop, at)
-        except Exception:
+            self._win._visemes_sig.emit(tuple(frames), float(hop), float(at))
+        except (RuntimeError, TypeError, ValueError):
             pass
 
     def notify_phone_connected(self) -> None:
-        self._win.notify_phone_connected()
+        """Thread-safe: queue device notification to the Qt GUI thread."""
+        try:
+            self._win._phone_connected_sig.emit()
+        except RuntimeError:
+            pass
 
     def set_state(self, state: str):
         self._win._state_sig.emit(state)
