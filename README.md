@@ -21,6 +21,12 @@
 - WhatsApp/Telegram interaction uses opt-in, permission-gated workflows: JARVIS can prepare a message draft/share link, but never chooses a recipient or presses Send. Call preparation only opens the app; you choose the contact and start the call yourself.
 - Safe GitHub fast-forward updater and GitHub Actions syntax checks.
 
+## Central Settings Hub
+
+Click the **⚙** header button, then **ALL SETTINGS & FEATURES** to open the categorized settings hub. It groups assistant appearance, AI providers, audio, PC control, system metrics, windows/monitors, permissions, memory, knowledge, projects, tasks, workflows, proactive status, plugins, local models, remote control, security audit, backups and diagnostics.
+
+PC-control permissions for desktop input, window management, system settings and system power are enabled by default for new installs and migrated older permission files. This enables JARVIS's own capability flags only; it cannot grant Windows/UAC or other application permissions. Sensitive actions continue to show a confirmation before execution. GUI actions are initiated on the Qt GUI thread, and chat commands are sent through the queued Qt signal to avoid cross-thread widget access.
+
 ## Quick start — Windows 10/11
 1. Install Python 3.10+ and Git; enable **Add Python to PATH**.
 2. Clone: `git clone https://github.com/sajinstalin01/Jarvis-ai.git`

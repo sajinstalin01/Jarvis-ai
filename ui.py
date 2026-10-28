@@ -5495,6 +5495,14 @@ class MainWindow(QMainWindow):
                           f"border-bottom: 1px solid {C.BORDER}; padding-bottom: 4px;")
         lay.addWidget(hdr)
 
+        settings_hub_btn = QPushButton("⚙  ALL SETTINGS & FEATURES")
+        settings_hub_btn.setFixedHeight(32)
+        settings_hub_btn.setFont(QFont("Courier New", 8, QFont.Weight.Bold))
+        settings_hub_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        settings_hub_btn.setStyleSheet(_BTN_STYLE_PRI)
+        settings_hub_btn.clicked.connect(self._open_settings_hub)
+        lay.addWidget(settings_hub_btn)
+
         remote_btn = QPushButton("◉  REMOTE CONTROL")
         remote_btn.setFixedHeight(30)
         remote_btn.setFont(QFont("Courier New", 8, QFont.Weight.Bold))
@@ -6232,6 +6240,48 @@ class MainWindow(QMainWindow):
     def notify_phone_connected(self) -> None:
         if self._remote_overlay and self._remote_overlay.isVisible():
             self._remote_overlay.mark_connected()
+
+    def _open_settings_hub(self):
+        """Open the single categorized settings and feature hub."""
+        try:
+            from settings_hub import SettingsHubOverlay
+            callbacks = {
+                "customise": self._open_customize,
+                "providers": self._open_providers,
+                "audio": self._open_audio_devices,
+                "memory": self._open_memory_panel,
+                "plugins": self._open_plugin_manager,
+                "plugin_settings": self._open_plugin_settings,
+                "remote": self._open_remote,
+                "fonts": self._open_font_collection,
+            }
+            cw = self.centralWidget()
+            overlay = SettingsHubOverlay(
+                cw,
+                callbacks=callbacks,
+                command_callback=lambda command: self._command_sig.emit(command),
+            )
+            width = min(620, max(420, cw.width() - 32))
+            height = min(700, max(400, cw.height() - 32))
+            overlay.setGeometry(
+                max(8, (cw.width() - width) // 2),
+                max(8, (cw.height() - height) // 2),
+                width, height,
+            )
+            overlay.show()
+            overlay.raise_()
+            self._settings_hub_overlay = overlay
+            self._close_setup()
+        except Exception as exc:
+            self._log.append_log(f"SYS: Settings hub unavailable — {exc}")
+
+    def _open_font_collection(self):
+        """Open the font picker attached by the application bootstrap, if present."""
+        try:
+            from font_manager import open_font_collection
+            open_font_collection(self)
+        except Exception as exc:
+            self._log.append_log(f"SYS: Font collection is available from the Appearance menu — {exc}")
 
     def _open_remote(self):
         if not self.on_remote_clicked:
