@@ -298,3 +298,10 @@ Examples:
 - “Jarvis, search for Python tutorials” → `search Python tutorials`
 
 Irreversible system actions, deleting files, sending messages, installing software, and changing critical settings must remain confirmation-gated. The router is intentionally conservative: unclear requests fall back to normal AI conversation instead of guessing.
+## Secure Device Ecosystem — Phase 1
+
+- PC-control capability flags for desktop input, window control, system settings and system power default to enabled in JARVIS. Existing explicit local revocations are respected; this does not bypass Windows/UAC or device privacy permissions.
+- Low-risk, reversible commands such as window focus/minimize/maximize/restore, moving a window, mouse movement/scroll, opening Settings, and volume/brightness/power-plan adjustments do not require a separate confirmation prompt after the user requests them.
+- Mouse clicks, dragging, typing, hotkeys/key presses, closing windows and system power actions remain confirmation-gated. Message sending/call placement and unrestricted shell execution are not enabled.
+- Audio waveform, avatar-glance, speech-viseme and phone-connected UI updates are relayed with queued Qt signals to the GUI thread. App-control confirmation dialogs fail closed if reached from a worker thread.
+- Next phases: capability-scoped device pairing, authenticated remote actions, revocation/audit controls, and verified multi-step workflows. Remote access remains loopback-only by default.
