@@ -76,7 +76,7 @@ class AppControlManager:
             if requested.casefold() in {"all", "everything"}:
                 detail = (
                     "Enable all JARVIS-supported app capabilities?\n\n"
-                    "This enables app discovery/launch, literal typing, message drafts, call preparation, confirmed mouse/keyboard actions, window management, settings navigation and power requests. Every desktop input, window, settings and power action still requires its own confirmation. JARVIS will not silently send messages or override Windows permissions."
+                    "This enables app discovery/launch, literal typing, message drafts, call preparation, mouse/keyboard actions, window management, settings navigation and power requests. Low-risk reversible actions may run without a prompt; risky actions still require confirmation. JARVIS will not silently send messages or override Windows permissions."
                 )
                 if not self._confirm("Grant supported app permissions", detail):
                     return "Permission grant cancelled; existing settings are unchanged."

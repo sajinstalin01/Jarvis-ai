@@ -305,3 +305,5 @@ Irreversible system actions, deleting files, sending messages, installing softwa
 - Mouse clicks, dragging, typing, hotkeys/key presses, closing windows and system power actions remain confirmation-gated. Message sending/call placement and unrestricted shell execution are not enabled.
 - Audio waveform, avatar-glance, speech-viseme and phone-connected UI updates are relayed with queued Qt signals to the GUI thread. App-control confirmation dialogs fail closed if reached from a worker thread.
 - Next phases: capability-scoped device pairing, authenticated remote actions, revocation/audit controls, and verified multi-step workflows. Remote access remains loopback-only by default.
+
+- Permission defaults do not erase a user's saved revocation in the local permission file. Use the app's permissions command to inspect status; grant commands are not needed for the four PC-control capabilities on a fresh/default configuration.

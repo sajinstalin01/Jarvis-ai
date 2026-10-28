@@ -167,8 +167,9 @@ class PermissionStore:
             rows.append(f"{state:3} · {key} — {info['label']}\n      {info['description']}")
         rows.append(
             "\nDesktop input, window control, system settings and system power are enabled by default. "
-            "Each action still asks for confirmation; this is not a Windows administrator/UAC grant. "
-            "Typing, message drafts and calls remain opt-in. Private app contents, arbitrary file access, "
+            "Low-risk reversible actions run without repeated prompts; clicks, typing, closing windows, hotkeys "
+            "and power actions still require confirmation. This is not a Windows administrator/UAC grant. "
+            "Typing via the separate type-text workflow, message drafts and calls remain opt-in. Private app contents, arbitrary file access, "
             "unattended calls and automatic message sending are not enabled."
         )
         return "\n".join(rows)
