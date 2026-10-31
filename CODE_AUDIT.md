@@ -104,8 +104,6 @@ The links below provide direct access to every file in the recursive Git tree in
 - [`app_control_manager.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/app_control_manager.py)
 - [`app_permissions.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/app_permissions.py)
 - [`auto_update.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/auto_update.py)
-- [`elevenlabs_api.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/elevenlabs_api.py)
-- [`elevenlabs_manager.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/elevenlabs_manager.py)
 - [`font_manager.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/font_manager.py)
 - [`jarvis.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/jarvis.py)
 - [`jarvis_ai.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/jarvis_ai.py)
@@ -127,8 +125,6 @@ The links below provide direct access to every file in the recursive Git tree in
 - [`tests/test_app_control_wiring.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/tests/test_app_control_wiring.py)
 - [`tests/test_app_launcher.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/tests/test_app_launcher.py)
 - [`tests/test_app_permissions.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/tests/test_app_permissions.py)
-- [`tests/test_elevenlabs_api.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/tests/test_elevenlabs_api.py)
-- [`tests/test_elevenlabs_integration.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/tests/test_elevenlabs_integration.py)
 - [`tests/test_font_manager.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/tests/test_font_manager.py)
 - [`tests/test_jarvis_ai.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/tests/test_jarvis_ai.py)
 - [`tests/test_jarvis_remote.py`](https://github.com/sajinstalin01/Jarvis-ai/blob/main/tests/test_jarvis_remote.py)
@@ -144,8 +140,13 @@ The links below provide direct access to every file in the recursive Git tree in
 
 ## Follow-up feature additions
 
-- Added `core/api_key_manager.py` for unlimited configured key pools for the currently integrated Groq, Gemini, and ElevenLabs providers, masked live health checks, and safe status classifications.
+- Added `core/api_key_manager.py` for unlimited configured key pools for the currently integrated Groq and Gemini providers, masked live health checks, and safe status classifications.
 - Updated `jarvis_ai.py` to try each Groq key and then each Gemini fallback key while keeping the existing single-key call signature.
 - Added `memory/evolution.py` for opt-in-toggleable, local, narrow automatic memory updates based on explicit user statements; credentials and sensitive topics are excluded.
-- Wired `api status`, `api check`, `api keys`, and `memory auto on|off|status` into the active bridge. Preserved existing API configuration during first-run setup and added key-pool selection to ElevenLabs.
+- Wired `api status`, `api check`, `api keys`, and `memory auto on|off|status` into the active bridge. Preserved existing API configuration during first-run setup and kept provider key-pool selection limited to Groq and Gemini.
 - Added regression tests for key pool loading/masking/status and memory extraction/toggle behavior. CI is still required to verify the commit.
+
+
+## Integration removal
+
+The ElevenLabs cloud integration has been removed from the active JARVIS bridge, API-key provider registry, speech-recognition path, optional TTS engine factory, environment template, and tests. Local speech output and Google speech recognition remain. `README.md` was intentionally left unchanged at the user's request.

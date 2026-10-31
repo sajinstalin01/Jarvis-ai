@@ -1,13 +1,5 @@
-"""Optional microphone input and spoken replies for JARVIS.
-
-Google Speech Recognition remains the default STT provider. ElevenLabs Scribe
-can be selected explicitly with JARVIS_STT_PROVIDER=elevenlabs; this uploads
-the captured microphone audio to ElevenLabs, so enable it only when intended.
-"""
-import os
-import tempfile
+"""Optional microphone input and local spoken replies for JARVIS."""
 import threading
-from pathlib import Path
 
 try:
     import speech_recognition as sr
@@ -38,29 +30,14 @@ class VoiceController:
             return
 
         def work():
-            audio_path = None
             try:
                 recognizer = sr.Recognizer()
                 with sr.Microphone() as source:
                     self.on_status("Listening… speak now")
                     recognizer.adjust_for_ambient_noise(source, duration=0.5)
                     audio = recognizer.listen(source, timeout=6, phrase_time_limit=12)
-                provider = os.getenv("JARVIS_STT_PROVIDER", "google").strip().casefold()
-                self.on_status(f"Recognizing speech with {provider}…")
-                if provider == "elevenlabs":
-                    from elevenlabs_api import ElevenLabsAPIError, ElevenLabsClient
-
-                    with tempfile.NamedTemporaryFile(prefix="jarvis_stt_", suffix=".wav", delete=False) as temp:
-                        temp.write(audio.get_wav_data())
-                        audio_path = Path(temp.name)
-                    try:
-                        transcript = ElevenLabsClient().transcribe(audio_path)
-                    except ElevenLabsAPIError as exc:
-                        self.on_status(f"ElevenLabs speech recognition: {exc}")
-                        return
-                    text = str(transcript.get("text", "")).strip()
-                else:
-                    text = recognizer.recognize_google(audio)
+                self.on_status("Recognizing speech with Google…")
+                text = recognizer.recognize_google(audio)
                 if text:
                     self.on_result(text)
                     self.on_status("Voice command recognized")
@@ -68,12 +45,6 @@ class VoiceController:
                     self.on_status("No speech was recognized.")
             except Exception as exc:
                 self.on_status(f"Voice input: {exc}")
-            finally:
-                if audio_path is not None:
-                    try:
-                        audio_path.unlink(missing_ok=True)
-                    except OSError:
-                        pass
 
         threading.Thread(target=work, daemon=True, name="JarvisVoiceInput").start()
 

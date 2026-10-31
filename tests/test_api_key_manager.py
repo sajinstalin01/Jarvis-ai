@@ -45,6 +45,12 @@ class ApiKeyManagerTests(unittest.TestCase):
                             clients={"gemini": lambda key: (_ for _ in ()).throw(RuntimeError("HTTP 401 unauthorized"))})
         self.assertEqual(row["status"], "INVALID")
 
+    def test_only_supported_ai_providers_are_registered(self):
+        from core.api_key_manager import PROVIDERS
+        self.assertEqual(set(PROVIDERS), {"groq", "gemini"})
+        with self.assertRaises(ValueError):
+            get_api_keys("elevenlabs", config={}, env={})
+
 
 if __name__ == "__main__":
     unittest.main()

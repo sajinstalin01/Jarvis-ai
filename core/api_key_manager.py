@@ -1,7 +1,7 @@
 """Local multi-key registry and live health checks for JARVIS API integrations.
 
-Supported services are the providers used by this repository: Groq, Gemini, and
-ElevenLabs. Any number of keys may be configured per service. Secret values are
+Supported services are Groq and Gemini. Any number of keys may be
+configured per service. Secret values are
 never returned by status functions; only a masked suffix is shown.
 """
 from __future__ import annotations
@@ -18,14 +18,9 @@ API_FILE = ROOT / "config" / "api_keys.json"
 PROVIDERS = {
     "groq": {"title": "Groq", "env": "GROQ_API_KEY", "legacy": ("groq_api_key", "groq")},
     "gemini": {"title": "Gemini", "env": "GEMINI_API_KEY", "legacy": ("gemini_api_key", "gemini")},
-    "elevenlabs": {
-        "title": "ElevenLabs", "env": "ELEVENLABS_API_KEY",
-        "legacy": ("elevenlabs_api_key", "elevenlabs"),
-    },
 }
 ALIASES = {
     "google": "gemini", "google gemini": "gemini", "genai": "gemini",
-    "eleven labs": "elevenlabs", "eleven_labs": "elevenlabs",
 }
 
 
@@ -184,9 +179,6 @@ def probe_api_key(provider: str, key: str, *, timeout: float = 12.0,
                 close = getattr(client, "close", None)
                 if callable(close):
                     close()
-        elif name == "elevenlabs":
-            from elevenlabs_api import ElevenLabsClient
-            ElevenLabsClient(api_key=key, timeout=timeout).get_user()
         return {"provider": title, "key": mask_api_key(key), "status": "VALID",
                 "detail": "Authenticated API request succeeded."}
     except Exception as exc:  # SDK/network error types differ by provider version.

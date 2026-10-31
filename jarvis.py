@@ -47,9 +47,6 @@ try:
     _cfg = json.loads(API_FILE.read_text(encoding="utf-8"))
     for _config_key, _env_key in (
         ("gemini_api_key", "GEMINI_API_KEY"),
-        ("elevenlabs_api_key", "ELEVENLABS_API_KEY"),
-        ("elevenlabs_voice_id", "ELEVENLABS_VOICE_ID"),
-        ("elevenlabs_model_id", "ELEVENLABS_MODEL_ID"),
     ):
         if _cfg.get(_config_key):
             os.environ.setdefault(_env_key, str(_cfg[_config_key]))
@@ -58,9 +55,9 @@ except Exception:
 
 def _load_pyqt6():
     """Import the Qt classes required by JARVIS."""
-    from PyQt6.QtCore import QObject, Qt, QUrl, pyqtSignal
+    from PyQt6.QtCore import QObject, Qt, pyqtSignal
     from PyQt6.QtWidgets import QApplication
-    return QObject, Qt, QUrl, pyqtSignal, QApplication
+    return QObject, Qt, pyqtSignal, QApplication
 
 
 def _repair_pyqt6_install():
@@ -88,7 +85,7 @@ def _repair_pyqt6_install():
 
 
 try:
-    QObject, Qt, QUrl, pyqtSignal, QApplication = _load_pyqt6()
+    QObject, Qt, pyqtSignal, QApplication = _load_pyqt6()
 except (ImportError, OSError) as first_error:
     # The old message told users to install requirements, but did not ensure pip
     # targeted the Python interpreter actually launching this file. Try a focused
@@ -110,7 +107,7 @@ except (ImportError, OSError) as first_error:
                         sys.modules.pop(module_name, None)
                 importlib.invalidate_caches()
                 try:
-                    QObject, Qt, QUrl, pyqtSignal, QApplication = _load_pyqt6()
+                    QObject, Qt, pyqtSignal, QApplication = _load_pyqt6()
                     print("[JARVIS] PyQt6 repair succeeded.")
                 except (ImportError, OSError) as retry_error:
                     repair_error = f"Import still fails after repair: {retry_error}"
@@ -144,17 +141,11 @@ except (ImportError, OSError) as first_error:
         details.extend(["", "Repair diagnostic:", repair_error])
     raise SystemExit("\n".join(details)) from first_error
 
-try:
-    from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
-except Exception:
-    QAudioOutput = QMediaPlayer = None
-
 import ui as _ui_module
 from ui import JarvisUI, apply_realistic_theme, polish_window
 from font_manager import (get_font_settings, install_font_menu, load_custom_fonts)
 from open_command import parse_open_payload, safe_website_url
 from app_control_manager import AppControlManager
-from elevenlabs_manager import ElevenLabsManager
 from jarvis_ai import generate_response
 from core.api_key_manager import check_all_api_keys, format_api_status, get_api_keys
 from memory.evolution import is_enabled as auto_memory_enabled, learn_from_message, set_enabled as set_auto_memory, status_text as auto_memory_status
@@ -189,8 +180,6 @@ class _VoiceCommandRelay(QObject):
     """Queue voice-worker callbacks safely onto the Qt GUI thread."""
     command_requested = pyqtSignal(str)
     status_requested = pyqtSignal(str)
-    elevenlabs_result_requested = pyqtSignal(str)
-    elevenlabs_audio_requested = pyqtSignal(str)
     log_requested = pyqtSignal(str)
     reminder_speech_requested = pyqtSignal(str)
     answer_requested = pyqtSignal(str, str)
@@ -205,12 +194,6 @@ class JarvisBridge:
         from pc_operator import PCOperator
         self.pc_operator = PCOperator(self.app_control.permissions, self.app_control._confirm)
         self._voice_relay = _VoiceCommandRelay()
-        self._voice_relay.elevenlabs_result_requested.connect(
-            self._elevenlabs_result_on_ui, Qt.ConnectionType.QueuedConnection
-        )
-        self._voice_relay.elevenlabs_audio_requested.connect(
-            self._play_elevenlabs_audio, Qt.ConnectionType.QueuedConnection
-        )
         self._voice_relay.log_requested.connect(self._log_on_ui, Qt.ConnectionType.QueuedConnection)
         self._voice_relay.reminder_speech_requested.connect(self._speak_reminder_on_ui, Qt.ConnectionType.QueuedConnection)
         self._voice_relay.answer_requested.connect(
@@ -219,24 +202,6 @@ class JarvisBridge:
         self._voice_relay.error_requested.connect(
             self._ai_error_on_ui, Qt.ConnectionType.QueuedConnection
         )
-        self.elevenlabs = ElevenLabsManager(
-            ui,
-            self._voice_relay.elevenlabs_result_requested.emit,
-            self._voice_relay.elevenlabs_audio_requested.emit,
-        )
-        self._elevenlabs_player = None
-        self._elevenlabs_audio_output = None
-        if QMediaPlayer is not None and QAudioOutput is not None:
-            try:
-                # Keep Qt multimedia objects parentless and owned by this bridge.
-                # They are created on the GUI thread and retained for its lifetime.
-                self._elevenlabs_player = QMediaPlayer()
-                self._elevenlabs_audio_output = QAudioOutput()
-                self._elevenlabs_player.setAudioOutput(self._elevenlabs_audio_output)
-            except Exception as _audio_exc:
-                print(f"[ElevenLabs] Qt audio playback unavailable: {_audio_exc}")
-                self._elevenlabs_player = None
-                self._elevenlabs_audio_output = None
         self._voice_relay.command_requested.connect(
             self.handle_command, Qt.ConnectionType.QueuedConnection
         )
@@ -275,26 +240,6 @@ class JarvisBridge:
         except Exception as exc:
             self._voice_relay.log_requested.emit("VOICE: Reminder speech unavailable: " + str(exc))
 
-    def _elevenlabs_result_on_ui(self, message):
-        self.ui.write_log("ELEVENLABS: " + str(message))
-
-    def _play_elevenlabs_audio(self, file_path):
-        path = Path(str(file_path)).expanduser()
-        if not path.is_file():
-            self.ui.write_log(f"ELEVENLABS: Audio file not found: {path}")
-            return
-        try:
-            if self._elevenlabs_player is not None:
-                self._elevenlabs_player.stop()
-                self._elevenlabs_player.setSource(QUrl.fromLocalFile(str(path.resolve())))
-                self._elevenlabs_player.play()
-                self.ui.write_log(f"ELEVENLABS: Playing {path.name}")
-            else:
-                webbrowser.open(path.resolve().as_uri())
-                self.ui.write_log(f"ELEVENLABS: Opened {path.name} in the default media app.")
-        except Exception as exc:
-            self.ui.write_log(f"ELEVENLABS: Could not play audio: {exc}")
-
     def _voice_status(self, message):
         self._voice_relay.status_requested.emit(str(message))
 
@@ -328,14 +273,6 @@ class JarvisBridge:
             key = str(cfg.get("gemini_api_key", "")).strip()
             if key:
                 os.environ["GEMINI_API_KEY"] = key
-            for _config_key, _env_key in (
-                ("elevenlabs_api_key", "ELEVENLABS_API_KEY"),
-                ("elevenlabs_voice_id", "ELEVENLABS_VOICE_ID"),
-                ("elevenlabs_model_id", "ELEVENLABS_MODEL_ID"),
-            ):
-                _value = str(cfg.get(_config_key, "")).strip()
-                if _value and not os.getenv(_env_key):
-                    os.environ[_env_key] = _value
         except Exception:
             pass
 
@@ -400,10 +337,7 @@ class JarvisBridge:
             self.ui.write_log(f"SYS: Response provider: {provider}")
         try:
             if not self.ui.muted:
-                if os.getenv("JARVIS_TTS_PROVIDER", "pyttsx3").strip().casefold() == "elevenlabs":
-                    self.elevenlabs.speak_response(answer)
-                else:
-                    self._voice.speak(answer)
+                self._voice.speak(answer)
         except Exception:
             pass
 
@@ -427,9 +361,6 @@ class JarvisBridge:
                 return feature_result
         except Exception as feature_error:
             self.ui.write_log(f"FEATURES: {type(feature_error).__name__}: {feature_error}")
-        elevenlabs_response = self.elevenlabs.handle_command(raw)
-        if elevenlabs_response is not None:
-            return elevenlabs_response
         app_control_response = self.app_control.handle_command(raw)
         if app_control_response is not None:
             return app_control_response
@@ -443,7 +374,6 @@ class JarvisBridge:
                     "• type text <plain text> (permission + per-action confirmation)\n"
                     "• draft message on <whatsapp|telegram>: <text> (draft only)\n"
                     "• prepare call on <whatsapp|telegram> (opens app; you place call)\n"
-                    "• elevenlabs help — voice, audio generation, transcription, sound, music, usage\n"
                     "• open <google|youtube|github|gmail|wikipedia>\n"
                     "• search <query>; calculate <expression>\n"
                     "• pc status, pc lock, pc mute, pc screenshot, pc metrics, pc windows, pc monitors\n"
@@ -461,7 +391,7 @@ class JarvisBridge:
             return format_api_status(check_all_api_keys())
         if p in {"api keys", "api providers"}:
             rows = []
-            for provider in ("groq", "gemini", "elevenlabs"):
+            for provider in ("groq", "gemini")
                 count = len(get_api_keys(provider))
                 rows.append(f"{provider.title()}: {count} configured key(s)")
             return "\n".join(rows) + "\nUse 'api status' to check each key live; key values stay hidden."
