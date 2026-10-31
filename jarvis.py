@@ -391,7 +391,7 @@ class JarvisBridge:
             return format_api_status(check_all_api_keys())
         if p in {"api keys", "api providers"}:
             rows = []
-            for provider in ("groq", "gemini")
+            for provider in ("groq", "gemini"):
                 count = len(get_api_keys(provider))
                 rows.append(f"{provider.title()}: {count} configured key(s)")
             return "\n".join(rows) + "\nUse 'api status' to check each key live; key values stay hidden."
