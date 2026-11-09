@@ -102,6 +102,8 @@ class DeviceIntegrationHub:
         if not _ENTITY.fullmatch(entity):
             return "Invalid entity ID. Use a Home Assistant entity such as light.desk."
         domain = entity.split(".", 1)[0]
+        if domain not in _ALLOWED_SERVICES:
+            return "Unsupported Home Assistant entity domain."
         if service not in _ALLOWED_SERVICES.get(domain, set()):
             return "Blocked service. Only allow-listed Home Assistant services for supported device domains are accepted."
         payload = dict(data or {})
