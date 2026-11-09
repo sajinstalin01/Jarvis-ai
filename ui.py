@@ -29,7 +29,7 @@ os.environ.setdefault("QT_LOGGING_RULES", "qt.multimedia.*=false")
 from PyQt6.QtCore import (
     QEasingCurve, QLineF, QMimeData, QObject, QParallelAnimationGroup, QPointF,
     QPoint, QPropertyAnimation, QRect, QRectF, QSize, QSizeF, Qt, QTimer,
-    QUrl, pyqtSignal,
+    QUrl, QThread, pyqtSignal,
 )
 from PyQt6.QtGui import (
     QBrush, QColor, QConicalGradient, QDragEnterEvent, QDropEvent, QFont,
@@ -3081,7 +3081,10 @@ class ProvidersOverlay(_HudOverlay):
             item = lay.takeAt(0)
             w = item.widget()
             if w is not None:
-                w.setParent(None)
+                # QWidget.setParent is legal only on the widget's owning thread.
+                # deleteLater is queued safely when cleanup was requested elsewhere.
+                if QThread.currentThread() == w.thread():
+                    w.setParent(None)
                 w.deleteLater()
             elif item.layout() is not None:
                 self._clear(item.layout())
@@ -6077,7 +6080,8 @@ class MainWindow(QMainWindow):
             item = self._quiz_answers_lay.takeAt(0)
             child = item.widget()
             if child is not None:
-                child.setParent(None)
+                if QThread.currentThread() == child.thread():
+                    child.setParent(None)
                 child.deleteLater()
 
     def _quiz_render(self):

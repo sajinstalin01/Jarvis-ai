@@ -35,6 +35,13 @@ class UIThreadBoundaryTests(unittest.TestCase):
         self.assertIn("QThread.currentThread() != window.thread()", source)
         self.assertIn("return False", source)
 
+    def test_dynamic_widget_reparenting_checks_owning_thread(self):
+        source = (ROOT / "ui.py").read_text(encoding="utf-8")
+        self.assertIn("QThread.currentThread() == w.thread()", source)
+        self.assertIn("QThread.currentThread() == child.thread()", source)
+        self.assertIn("w.deleteLater()", source)
+        self.assertIn("child.deleteLater()", source)
+
 
 if __name__ == "__main__":
     unittest.main()
