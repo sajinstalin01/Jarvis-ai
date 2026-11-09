@@ -30,6 +30,22 @@ class FeatureHub:
         s=str(cmd or "").strip(); p=s.casefold()
         try:
             if p in {"features","feature help","features help"}: return self.help()
+            if p in {"monitor","monitor status"}: return "System monitor is " + ("enabled" if getattr(self,"system_watch",None) and self.system_watch.enabled() else "disabled") + ". Use monitor on/off."
+            if p=="monitor on":
+                from features.system_watch import SystemWatch
+                self.system_watch=SystemWatch(self.root); return self.system_watch.set_enabled(True)
+            if p=="monitor off":
+                from features.system_watch import SystemWatch
+                self.system_watch=SystemWatch(self.root); return self.system_watch.set_enabled(False)
+            if p in {"monitor snapshot","monitor now"}:
+                from features.system_watch import SystemWatch
+                self.system_watch=SystemWatch(self.root); return self.system_watch.report()
+            if p=="monitor history":
+                from features.system_watch import SystemWatch
+                self.system_watch=SystemWatch(self.root); return self.system_watch.history()
+            if p=="monitor alerts":
+                from features.system_watch import SystemWatch
+                self.system_watch=SystemWatch(self.root); return self.system_watch.alerts()
             if p == "fm" or p.startswith("fm ") or p in {"file manager", "file manager help"}: return self.file_manager.dispatch(s)
             if p in {"tasks","tasks list"}: return self.tasks_list()
             if p=="tasks due": return self.tasks_list(due_only=True)
@@ -101,6 +117,7 @@ analyze <csv/json/document> / clipboard read
 project add <name>: <folder> / projects / project use <name> / project index <name|active> / find <words>
 tasks add <title> | due=YYYY-MM-DD HH:MM / tasks list / tasks due / tasks done <id> / tasks delete <id> (then tasks delete confirm <id>)
 backup create / backup status / backup restore stage <zip>
+monitor on|off|status|snapshot|history|alerts
 profile report / companion status / proactive on|off|status|check
 Safety: no arbitrary shell commands, automatic plugin execution, or background screen/clipboard monitoring."""
     def screenshot(self):

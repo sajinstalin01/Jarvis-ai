@@ -193,6 +193,17 @@ class JarvisBridge:
         self.app_control = AppControlManager(ui)
         from pc_operator import PCOperator
         self.pc_operator = PCOperator(self.app_control.permissions, self.app_control._confirm)
+        from features.device_integrations import DeviceIntegrationHub
+        from features.system_watch import SystemWatch
+        self.device_hub = DeviceIntegrationHub(ROOT, confirm=self.app_control._confirm)
+        self.system_watch = SystemWatch(ROOT)
+        # A GUI-thread-owned timer samples lightweight OS counters. All widget
+        # logging stays on the Qt thread, avoiding cross-thread QObject parenting.
+        from PyQt6.QtCore import QTimer
+        self._watch_timer = QTimer(self._voice_relay)
+        self._watch_timer.setInterval(15000)
+        self._watch_timer.timeout.connect(self._system_watch_tick)
+        self._watch_timer.start()
         self._voice_relay = _VoiceCommandRelay()
         self._voice_relay.log_requested.connect(self._log_on_ui, Qt.ConnectionType.QueuedConnection)
         self._voice_relay.reminder_speech_requested.connect(self._speak_reminder_on_ui, Qt.ConnectionType.QueuedConnection)
@@ -227,6 +238,17 @@ class JarvisBridge:
         self.ui.write_log("SYS: PyQt6 HUD connected to Groq/Gemini, local memory, app launcher and PC controls.")
         if not (os.getenv("GROQ_API_KEY") or os.getenv("GEMINI_API_KEY")):
             self.ui.write_log("SYS: Add GROQ_API_KEY or GEMINI_API_KEY to .env, or enter a Gemini key in setup.")
+
+    def _system_watch_tick(self):
+        """Runs on the Qt thread; monitor only OS counters and local task deadlines."""
+        if not self.system_watch.enabled():
+            return
+        try:
+            result = self.system_watch.sample()
+            for alert in result.get("alerts", []):
+                self.ui.write_log("SYSTEM WATCH: " + alert)
+        except Exception as exc:
+            self._voice_relay.log_requested.emit("SYSTEM WATCH: " + type(exc).__name__ + ": " + str(exc))
 
     def _log_on_ui(self, message):
         """Only mutate Qt widgets from the GUI thread."""
@@ -361,6 +383,9 @@ class JarvisBridge:
                 return feature_result
         except Exception as feature_error:
             self.ui.write_log(f"FEATURES: {type(feature_error).__name__}: {feature_error}")
+        device_response = self.device_hub.dispatch(raw)
+        if device_response is not None:
+            return device_response
         app_control_response = self.app_control.handle_command(raw)
         if app_control_response is not None:
             return app_control_response
@@ -385,6 +410,9 @@ class JarvisBridge:
                     "• remind me in 10 minutes to <task>; remind me daily/weekly to <task>; list reminders\n"
                     "• save workflow <name>: launch <app>; open <site>; search <query>\n"
                     "• run workflow <name>; workflows; developer diagnostics\n"
+                    "• tasks add/list/due/done/delete; project add/use/index; voice commands work with these aliases\\n"
+                    "• monitor on/off/status/snapshot/history/alerts; resource alerts are local-only\\n"
+                    "• alexa setup/status; devices list/find; turn on/off <Home Assistant entity_id>\\n"
                     "• remote server start / remote server stop")
         if p in {"api status", "api check", "check api keys", "check api status", "api keys status"}:
             self._refresh_api_keys()

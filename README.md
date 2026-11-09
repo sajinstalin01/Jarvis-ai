@@ -307,3 +307,12 @@ Irreversible system actions, deleting files, sending messages, installing softwa
 - Next phases: capability-scoped device pairing, authenticated remote actions, revocation/audit controls, and verified multi-step workflows. Remote access remains loopback-only by default.
 
 - Permission defaults do not erase a user's saved revocation in the local permission file. Use the app's permissions command to inspect status; grant commands are not needed for the four PC-control capabilities on a fresh/default configuration.
+
+
+## Smart-home, Alexa, voice tasks and system watch
+
+- **Home Assistant device bridge:** set `HOME_ASSISTANT_URL` and `HOME_ASSISTANT_TOKEN` in the process environment. JARVIS can list/search Home Assistant entities and issue allow-listed light, switch, fan, climate, cover, media-player, scene and script actions. Every state-changing device action requires a confirmation. Use HTTPS for remote Home Assistant servers; do not paste tokens into chat or commit them.
+- **Alexa support:** connect Alexa to Home Assistant using Home Assistant's Alexa Smart Home integration (Home Assistant Cloud or its documented manual skill setup), expose only selected entities, then discover them in the Alexa app. Alexa routines can invoke Home Assistant scripts/webhooks that JARVIS can also control. This is an integration path, not a claim that JARVIS directly controls every Alexa product or bypasses Amazon account linking.
+- **Voice task/project organization:** use natural commands such as “add task prepare release”, “show my tasks”, “mark task 3 done”, “show my projects”, and “switch to project Jarvis”. Existing local tasks and project registry remain stored locally.
+- **System watch:** `monitor on`, `monitor snapshot`, `monitor history`, `monitor alerts`, `monitor off`. When enabled, a GUI-thread timer records CPU, RAM, disk and network counters locally and reports high CPU/RAM or low disk space. Monitoring is off by default. It does not record screens, keystrokes, private app contents, microphone audio or clipboard contents.
+- **Desktop thread safety:** monitoring callbacks and voice callbacks are marshalled through Qt-owned objects/signals; keep all QWidget creation, reparenting and updates on the GUI thread. Windows UAC, accessibility settings and hardware/driver limitations still apply.
