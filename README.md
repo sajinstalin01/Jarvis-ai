@@ -52,7 +52,8 @@ Linux/macOS: `bash run_linux_mac.sh`.
 - `pc status`, `pc lock`, `pc mute`, `pc screenshot`, `pc shutdown`, `pc restart`
 - `open <app or website>` and `launch <app name>`; `open <site> search <query>`; `search <query>`
 - `calculate 12 * (8 + 2)`
-- `tasks add <title> | due=YYYY-MM-DD HH:MM`, `tasks list`, `tasks due`, `tasks done <id>`, `tasks delete <id>` (persistent local task tracker; due checks are on demand, not a background notifier)
+- `tasks add <title> | due=YYYY-MM-DD HH:MM | priority=low|normal|high`, `tasks list`, `tasks due`, `tasks priority <id> <level>`, `tasks export`, `tasks done <id>`, `tasks delete <id>` (persistent local task tracker; exports JSON under ignored `jarvis_data/`; due checks are on demand, not a background notifier)
+- `activity log` shows the 30 most recent local feature actions.
 - `search Python speech recognition`
 - `open YouTube`, `open Google`, `open GitHub`, `open Gmail`, `open Wikipedia`
 - `launch notepad`, `launch calculator`, `launch snipping tool`, `launch powershell`, `launch device manager`
@@ -181,7 +182,7 @@ Keep the JSON valid and use doubled backslashes in Windows paths. If Git is not 
 - **Optional wake-word listening:** use the `WAKE: OFF` button and enable it to listen for “Hey JARVIS”. It requires SpeechRecognition, microphone access and compatible PyAudio. The current recognizer sends captured speech to Google's speech-recognition service; disable wake mode when not needed.
 - **Live PC metrics:** CPU, RAM, disk usage and cumulative network transfer via `psutil`. Battery and temperature sensors appear only when the OS/hardware exposes them.
 - **Persistent local memory and history:** messages, saved memories, reminders and workflows use SQLite in `jarvis_data/jarvis.sqlite3`. This directory is ignored by Git and data stays on this computer unless you manually share it. Use the Memory & History window to search, save memories and clear chat history; saved memories are kept when history is cleared.
-- **Reminders:** `remind me in 10 minutes to stretch`, `remind me daily to review tasks`, `remind me weekly to back up`, `reminders`, and `delete reminder 1`. Supported repeating schedules are daily and weekly. JARVIS must be running to show a reminder notification.
+- **Reminders:** `remind me in 10 minutes to stretch`, `remind me daily to review tasks`, `remind me weekly to back up`, `reminders`, `snooze reminder 1 for 15 minutes`, and `cancel reminder 1`. Snooze accepts 1 minute through 7 days. JARVIS must be running to show a reminder notification.
 - **Safe workflows:** `workflow save morning: launch chrome; open gmail`, `workflow list`, `workflow run morning`, and `workflow delete morning`. Only allow-listed launch/open/search command types can be saved, arbitrary URLs and shell commands are rejected, and running a workflow requires confirmation.
 - **Developer mode:** `dev diagnostics` and `dev git status` report project syntax, Git status and latest commit. `dev test` runs the local unit tests. It does not execute arbitrary commands.
 - **Tests:** run `python -m unittest discover -s tests -v`. GitHub Actions compiles Python files and runs the service tests.

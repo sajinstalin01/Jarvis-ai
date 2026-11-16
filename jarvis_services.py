@@ -149,6 +149,16 @@ class JarvisStore:
             cursor = db.execute("DELETE FROM reminders WHERE id=?", (int(reminder_id),))
             return cursor.rowcount > 0
 
+    def snooze_reminder(self, reminder_id: int, minutes: int):
+        """Move an active reminder forward by a bounded number of minutes."""
+        minutes=int(minutes)
+        if not 1 <= minutes <= 10080:
+            raise ValueError("Snooze duration must be between 1 minute and 7 days.")
+        due=(datetime.now().astimezone()+timedelta(minutes=minutes)).isoformat(timespec="seconds")
+        with self._connect() as db:
+            cur=db.execute("UPDATE reminders SET due_at=?,enabled=1 WHERE id=?",(due,int(reminder_id)))
+            return cur.rowcount > 0
+
     def due_reminders(self, now: datetime | None = None):
         now = now or datetime.now().astimezone()
         due = []

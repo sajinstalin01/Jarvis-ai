@@ -21,6 +21,8 @@ class FeatureHub:
         self.plugins=self.root/"plugins"; self.backups=self.data/"backups"; self.staging=self.data/"restore_staging"
         with self.db() as c:
             c.executescript("CREATE TABLE IF NOT EXISTS edges(id INTEGER PRIMARY KEY,src TEXT,rel TEXT,dst TEXT,UNIQUE(src,rel,dst)); CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY,content TEXT,digest TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,at TEXT,action TEXT,result TEXT); CREATE TABLE IF NOT EXISTS timings(id INTEGER PRIMARY KEY,name TEXT,ms REAL); CREATE TABLE IF NOT EXISTS tasks(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,due_at TEXT,status TEXT NOT NULL DEFAULT 'open',created_at TEXT NOT NULL);")
+            columns={row[1] for row in c.execute("PRAGMA table_info(tasks)")}
+            if "priority" not in columns: c.execute("ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'")
         self.file_manager = FileManager(audit=self.audit)
     def db(self):
         c=sqlite3.connect(self.dbpath,timeout=10); c.row_factory=sqlite3.Row; return c
@@ -49,6 +51,9 @@ class FeatureHub:
             if p == "fm" or p.startswith("fm ") or p in {"file manager", "file manager help"}: return self.file_manager.dispatch(s)
             if p in {"tasks","tasks list"}: return self.tasks_list()
             if p=="tasks due": return self.tasks_list(due_only=True)
+            if p=="tasks export": return self.tasks_export()
+            if p in {"activity","activity log","actions history"}: return self.activity_log()
+            if p.startswith("tasks priority "): return self.task_priority(s[15:].strip())
             if p.startswith("tasks add "): return self.task_add(s[10:].strip())
             if p.startswith("tasks done "): return self.task_update(s[11:].strip(),"done")
             if p.startswith("tasks delete confirm "): return self.task_update(s[20:].strip(),"delete")
@@ -115,7 +120,8 @@ agent plan <task> / agent mission <task> / agent approve: <read-only command>
 models status / models hardware / models pull <model>
 analyze <csv/json/document> / clipboard read
 project add <name>: <folder> / projects / project use <name> / project index <name|active> / find <words>
-tasks add <title> | due=YYYY-MM-DD HH:MM / tasks list / tasks due / tasks done <id> / tasks delete <id> (then tasks delete confirm <id>)
+tasks add <title> | due=YYYY-MM-DD HH:MM | priority=low|normal|high / tasks list / tasks due / tasks priority <id> <level> / tasks export / tasks done <id> / tasks delete <id> (then tasks delete confirm <id>)
+activity log (recent local assistant actions)
 backup create / backup status / backup restore stage <zip>
 monitor on|off|status|snapshot|history|alerts
 profile report / companion status / proactive on|off|status|check
@@ -303,7 +309,7 @@ Safety: no arbitrary shell commands, automatic plugin execution, or background s
     def tasks_list(self,due_only=False):
         """List local tasks; due checks are on-demand, not background polling."""
         with self.db() as c:
-            rows=c.execute("SELECT id,title,due_at,status FROM tasks ORDER BY CASE WHEN status='open' THEN 0 ELSE 1 END, COALESCE(due_at,'9999'), id DESC LIMIT 100").fetchall()
+            rows=c.execute("SELECT id,title,due_at,status,priority FROM tasks ORDER BY CASE WHEN status='open' THEN 0 ELSE 1 END, CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END, COALESCE(due_at,'9999'), id DESC LIMIT 100").fetchall()
         now=datetime.now()
         out=[]
         for r in rows:
@@ -314,24 +320,46 @@ Safety: no arbitrary shell commands, automatic plugin execution, or background s
                 except ValueError: pass
             if due_only and not overdue: continue
             mark="OVERDUE" if overdue else r["status"].upper()
-            out.append(f"#{r['id']} [{mark}] {r['title']}"+(f" · due {due}" if due else " · no due date"))
+            out.append(f"#{r['id']} [{mark}] [{r['priority'].upper()}] {r['title']}"+(f" · due {due}" if due else " · no due date"))
         return "\\n".join(out) or ("No overdue tasks." if due_only else "No tasks saved. Add one with tasks add <title> | due=YYYY-MM-DD HH:MM.")
     def task_add(self,arg):
         """Create a local task with an optional validated local-time due date."""
         parts=[x.strip() for x in arg.split("|")]
         title=parts[0] if parts else ""
         if not title or len(title)>240: return "Use tasks add <title> | due=YYYY-MM-DD HH:MM (due date optional; local time)."
-        due=None
+        due=None; priority="normal"
         for part in parts[1:]:
             if part.casefold().startswith("due="):
                 raw=part[4:].strip()
                 try: due=datetime.fromisoformat(raw).replace(tzinfo=None).isoformat(timespec="minutes")
                 except ValueError: return "Invalid due date. Use YYYY-MM-DD HH:MM in your computer's local time."
+            elif part.casefold().startswith("priority="):
+                priority=part.split("=",1)[1].strip().lower()
+                if priority not in {"low","normal","high"}: return "Priority must be low, normal or high."
         with self.db() as c:
-            cur=c.execute("INSERT INTO tasks(title,due_at,status,created_at) VALUES(?,?,?,?)",(title,due,"open",datetime.now().isoformat(timespec="seconds")))
+            cur=c.execute("INSERT INTO tasks(title,due_at,status,created_at,priority) VALUES(?,?,?,?,?)",(title,due,"open",datetime.now().isoformat(timespec="seconds"),priority))
             task_id=cur.lastrowid
         self.audit("tasks.add",str(task_id))
         return f"Task #{task_id} saved locally: {title}"+(f" · due {due}" if due else "")
+    def task_priority(self,arg):
+        bits=arg.split()
+        if len(bits)!=2 or not bits[0].isdigit() or bits[1].lower() not in {"low","normal","high"}:
+            return "Use tasks priority <id> <low|normal|high>."
+        with self.db() as c:
+            cur=c.execute("UPDATE tasks SET priority=? WHERE id=?",(bits[1].lower(),int(bits[0])))
+        if not cur.rowcount: return f"Task #{bits[0]} not found."
+        self.audit("tasks.priority",f"id={bits[0]},priority={bits[1].lower()}")
+        return f"Task #{bits[0]} priority set to {bits[1].lower()}."
+    def tasks_export(self):
+        with self.db() as c:
+            rows=[dict(r) for r in c.execute("SELECT id,title,due_at,status,priority,created_at FROM tasks ORDER BY id")]
+        target=self.data/"tasks_export.json"
+        target.write_text(json.dumps({"exported_at":datetime.now().astimezone().isoformat(),"tasks":rows},indent=2),encoding="utf-8")
+        self.audit("tasks.export",f"count={len(rows)}")
+        return f"Exported {len(rows)} tasks to {target}"
+    def activity_log(self):
+        with self.db() as c: rows=c.execute("SELECT at,action,result FROM audit ORDER BY id DESC LIMIT 30").fetchall()
+        return "\n".join(f"{r['at']} · {r['action']} · {r['result']}" for r in rows) or "No assistant actions have been recorded yet."
     def task_update(self,arg,action):
         try: task_id=int(arg.strip())
         except (ValueError,AttributeError): return "Provide a numeric task ID, e.g. tasks done 3."

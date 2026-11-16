@@ -470,6 +470,13 @@ class JarvisBridge:
         if p == "list reminders" or p == "reminders":
             rows = self.store.list_reminders()
             return "\n".join(f"#{r['id']} · {r['due_at']} · {r['message']} ({r['recurrence']})" for r in rows) or "No active reminders."
+        match = re.fullmatch(r"snooze reminder (\d+) for (\d+) minutes?", p)
+        if match:
+            try:
+                ok = self.store.snooze_reminder(int(match.group(1)), int(match.group(2)))
+            except ValueError as exc:
+                return str(exc)
+            return "Reminder snoozed." if ok else "Reminder ID not found."
         if p.startswith("cancel reminder "):
             try: rid = int(p.rsplit(" ", 1)[1])
             except ValueError: return "Use: cancel reminder <id>"
