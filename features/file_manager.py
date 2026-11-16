@@ -11,6 +11,7 @@ class FileManager:
         self.audit=audit or (lambda action,result="ok":None)
         self.pending_delete=None
         self.pending_organize=None
+        self.pending_transfer=None
 
     @staticmethod
     def path(value): return Path(value).expanduser().resolve()
@@ -50,7 +51,10 @@ class FileManager:
             root,q=self.pair(rest); return self.search(root,q)
         if op=="create": return self.create(rest)
         if op in {"rename","copy","move"}:
-            a,b=self.pair(rest); return self.transfer(op,a,b)
+            a,b=self.pair(rest)
+            if op in {"move","rename"}: return self.transfer_request(op,a,b)
+            return self.transfer(op,a,b)
+        if op=="transfer" and rest.casefold()=="confirm": return self.transfer_confirm()
         if op=="delete":
             return self.delete_confirm(rest[8:].strip()) if rest.casefold().startswith("confirm ") else self.delete_request(rest)
         if op=="organize":
@@ -69,7 +73,7 @@ class FileManager:
 fm dirs | fm list <folder>
 fm search <root> :: <filename glob/name or content:text>
 fm create file <path> | fm create folder <path>
-fm rename <source> :: <destination> | fm copy <source> :: <destination> | fm move <source> :: <destination>
+fm rename <source> :: <destination> | fm move <source> :: <destination> (preview, then fm transfer confirm) | fm copy <source> :: <destination>
 fm delete <path> (then fm delete confirm <same path>)
 fm organize <folder> :: type|date|size (preview, then fm organize confirm)
 fm bulk-copy <source glob> :: <existing destination folder>
@@ -147,6 +151,44 @@ Delete and bulk organization require a separate confirmation. Search is bounded 
         else:
             dst.parent.mkdir(parents=True,exist_ok=True); shutil.move(str(src),str(dst))
         self.audit("fm."+action,f"{src} -> {dst}"); return f"{action.capitalize()} complete: {src} -> {dst}"
+
+    def transfer_request(self,action,src_value,dst_value):
+        raw_src=Path(src_value).expanduser()
+        src,dst=self.path(src_value),self.path(dst_value)
+        if action not in {"move","rename"}: return "Only move and rename use the preview flow."
+        if not src.exists(): return f"Source not found: {src}"
+        if raw_src.is_symlink() or src==Path(src.anchor) or src==Path.home(): return "Refusing to move a protected root or symlink."
+        if src==dst or self.inside(dst,src): return "Destination cannot be the source itself or a folder inside the source."
+        if dst.exists(): return f"Destination already exists: {dst}"
+        if not dst.parent.is_dir(): return f"Destination parent folder does not exist: {dst.parent}"
+        self.pending_transfer=(action,src,dst)
+        kind="folder" if src.is_dir() else "file"
+        if src.is_dir():
+            size=0; counted=0
+            try:
+                for child in src.rglob("*"):
+                    if child.is_file() and not child.is_symlink():
+                        size+=child.stat().st_size; counted+=1
+                        if counted>=2000: break
+                suffix=" (size estimate capped at 2,000 files)" if counted>=2000 else ""
+            except OSError: suffix=" (size estimate incomplete)"
+        else:
+            size=src.stat().st_size; suffix=""
+        return f"TRANSFER PREVIEW: {action} {kind} {src} → {dst} ({size} bytes){suffix}. Confirm with: fm transfer confirm"
+
+    def transfer_confirm(self):
+        if not self.pending_transfer: return "No pending move or rename preview."
+        action,src,dst=self.pending_transfer; self.pending_transfer=None
+        if not src.exists() or dst.exists() or not dst.parent.is_dir(): return "Transfer no longer valid; nothing changed. Request a fresh preview."
+        try:
+            src.rename(dst)
+            try:
+                from core.undo import push_undo
+                push_undo(f"{action} {src.name} to {dst}",lambda: (dst.rename(src),f"Restored {src}")[1] if dst.exists() and not src.exists() else "Cannot restore; one path has changed.")
+            except Exception: pass
+        except OSError as exc: return f"Transfer failed safely: {exc}"
+        self.audit("fm."+action,f"{src} -> {dst}")
+        return f"{action.capitalize()} complete: {src} -> {dst}. Say undo to reverse it."
 
     def delete_request(self,value):
         parts=self.parts(value)

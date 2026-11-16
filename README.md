@@ -54,6 +54,9 @@ Linux/macOS: `bash run_linux_mac.sh`.
 - `calculate 12 * (8 + 2)`
 - `tasks add <title> | due=YYYY-MM-DD HH:MM | priority=low|normal|high`, `tasks list`, `tasks due`, `tasks priority <id> <level>`, `tasks export`, `tasks done <id>`, `tasks delete <id>` (persistent local task tracker; exports JSON under ignored `jarvis_data/`; due checks are on demand, not a background notifier)
 - `activity log` shows the 30 most recent local feature actions.
+- `project context on|off|status` controls whether excerpts from the active, locally indexed project may be included in AI prompts; sharing is off by default. Answers with retrieved excerpts receive file and line markers for citations.
+- `voice sensitivity low|normal|high` tunes the microphone energy threshold; `voice sensitivity` shows the current setting.
+- `workflow studio schedule <name> in <minutes> minutes`, `workflow studio schedules`, `workflow studio cancel <id>`, and `workflow studio history [name]` manage one-time read-only workflow schedules and run history. JARVIS must stay running; only local read-only steps can be scheduled.
 - `search Python speech recognition`
 - `open YouTube`, `open Google`, `open GitHub`, `open Gmail`, `open Wikipedia`
 - `launch notepad`, `launch calculator`, `launch snipping tool`, `launch powershell`, `launch device manager`
@@ -113,14 +116,14 @@ Voice input requires SpeechRecognition, a microphone and compatible PyAudio; rec
 
 ## Remote control (opt-in)
 
-Use **Remote Control** in the sidebar to start or stop the authenticated API. Choose **NO** in the first prompt for loopback-only testing, or **YES** to explicitly allow connections from another device on your trusted local network. JARVIS generates a random bearer token in memory and displays it once; keep it private. The server stops and discards the token when you press the same sidebar button again or close JARVIS.
+Use **Remote Control** in the sidebar to start a temporary session and show a responsive companion page with status, lock, and allow-listed app launch controls. JARVIS generates a random bearer token in memory; the session expires and the server stops after 10 minutes. LAN access requires `JARVIS_TLS_CERT` and `JARVIS_TLS_KEY` pointing to a trusted certificate/key pair, then a separate confirmation in JARVIS. Without TLS configured, the server stays loopback-only. Stopping or refreshing the session revokes its key.
 
 Authenticated API:
 - `GET /api/status` — basic system metrics.
 - `POST /api/command` with JSON `{"command":"launch notepad"}` — allow-listed app launch.
 - Supported remote commands: `status`, `launch <app>`, `lock screen`.
 
-Include the token in the HTTP `Authorization: Bearer <token>` header. The remote API intentionally rejects shell commands, arbitrary URLs, remote file access, shutdown/restart, and other unrestricted actions. **LAN mode uses plain HTTP, not TLS encryption**: only enable it on a trusted private network, do not forward the port from your router, and stop the server when finished. The token is not persisted to disk. A Windows firewall prompt may appear.
+The companion page sends the token in the HTTP `Authorization: Bearer <token>` header and removes it from the address after storing it in that browser's local storage. The remote API intentionally rejects shell commands, arbitrary URLs, remote file access, shutdown/restart, and other unrestricted actions. LAN connections use HTTPS and require a certificate trusted by the connecting device. Do not forward the port from your router. A Windows firewall prompt may appear.
 
 ## Conversation memory and real-time voice chat
 
@@ -128,6 +131,8 @@ Include the token in the HTTP `Authorization: Bearer <token>` header. The remote
 - Up to 8 recent saved memories are included as user-provided notes. Save them explicitly with `remember <text>`; review with `memories`, search with `memories <term>`, and remove with `forget memory <id>`.
 - Use **VOICE CHAT: OFF** in the chat toolbar to enable continuous turn-based voice conversation. JARVIS listens through the microphone, transcribes speech using Google's cloud speech-recognition service, asks Groq/Gemini, speaks the answer with the installed system TTS, then listens for the next turn. Click **VOICE CHAT: ON** to stop.
 - This is turn-based voice interaction, not a full-duplex streaming audio call. It requires internet, microphone permission, SpeechRecognition, compatible PyAudio, and pyttsx3/system TTS. Voice recognition sends audio to Google's recognition service; don't enable it for private conversations you don't want processed by that service.
+- Set `JARVIS_STT_PROVIDER=whisper` to use optional faster-whisper for local transcription; install `faster-whisper` separately and set `JARVIS_WHISPER_MODEL` if you want a different model (default `base`). The first model load may need an internet download; subsequent transcription runs locally. Set `JARVIS_STT_PROVIDER=google` to use the default cloud recognizer. `voice sensitivity low|normal|high` adjusts microphone input sensitivity.
+- Voice commands show a transcript review dialog before JARVIS runs them; declining discards the recognized command.
 - Conversation history and memories remain in local `jarvis_data/jarvis.sqlite3` and are not uploaded to GitHub. Do not store passwords or API keys in memory.
 
 ## Automatic memory evolution, API key pools, and free-form prompts
@@ -182,7 +187,8 @@ Keep the JSON valid and use doubled backslashes in Windows paths. If Git is not 
 - **Optional wake-word listening:** use the `WAKE: OFF` button and enable it to listen for “Hey JARVIS”. It requires SpeechRecognition, microphone access and compatible PyAudio. The current recognizer sends captured speech to Google's speech-recognition service; disable wake mode when not needed.
 - **Live PC metrics:** CPU, RAM, disk usage and cumulative network transfer via `psutil`. Battery and temperature sensors appear only when the OS/hardware exposes them.
 - **Persistent local memory and history:** messages, saved memories, reminders and workflows use SQLite in `jarvis_data/jarvis.sqlite3`. This directory is ignored by Git and data stays on this computer unless you manually share it. Use the Memory & History window to search, save memories and clear chat history; saved memories are kept when history is cleared.
-- **Reminders:** `remind me in 10 minutes to stretch`, `remind me daily to review tasks`, `remind me weekly to back up`, `reminders`, `snooze reminder 1 for 15 minutes`, and `cancel reminder 1`. Snooze accepts 1 minute through 7 days. JARVIS must be running to show a reminder notification.
+- **Project citations:** after `project index <name>`, explicitly enable `project context on` to include matching excerpts from the selected project in AI requests. Responses can cite the local source path and line. This sharing is disabled by default and can be turned off with `project context off`.
+- **Reminders:** `remind me in 10 minutes to stretch`, `remind me daily to review tasks`, `remind me weekly to back up`, `remind me monthly to check bills`, `reminders`, `snooze reminder 1 for 15 minutes`, and `cancel reminder 1`. Snooze accepts 1 minute through 7 days. JARVIS must be running to show a reminder notification.
 - **Safe workflows:** `workflow save morning: launch chrome; open gmail`, `workflow list`, `workflow run morning`, and `workflow delete morning`. Only allow-listed launch/open/search command types can be saved, arbitrary URLs and shell commands are rejected, and running a workflow requires confirmation.
 - **Developer mode:** `dev diagnostics` and `dev git status` report project syntax, Git status and latest commit. `dev test` runs the local unit tests. It does not execute arbitrary commands.
 - **Tests:** run `python -m unittest discover -s tests -v`. GitHub Actions compiles Python files and runs the service tests.

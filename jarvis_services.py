@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import calendar
 from contextlib import contextmanager
 import platform
 import shutil
@@ -75,6 +76,12 @@ class JarvisStore:
                     steps_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS action_audit (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    outcome TEXT NOT NULL
+                );
             """)
 
     @staticmethod
@@ -99,6 +106,18 @@ class JarvisStore:
     def clear_history(self):
         with self._connect() as db:
             db.execute("DELETE FROM messages")
+
+    def record_action(self, action: str, outcome: str = "completed"):
+        """Record a compact action category without storing user command text."""
+        with self._connect() as db:
+            db.execute("INSERT INTO action_audit(created_at,action,outcome) VALUES(?,?,?)",
+                       (self._now(), str(action)[:80], str(outcome)[:40]))
+
+    def recent_actions(self, limit: int = 30):
+        with self._connect() as db:
+            rows=db.execute("SELECT created_at,action,outcome FROM action_audit ORDER BY id DESC LIMIT ?",
+                            (max(1,min(int(limit),100)),)).fetchall()
+        return [dict(row) for row in rows]
 
     def remember(self, content: str):
         content = content.strip()
@@ -125,8 +144,8 @@ class JarvisStore:
 
     def add_reminder(self, message: str, due_at: datetime, recurrence: str = "once"):
         recurrence = recurrence.lower().strip()
-        if recurrence not in {"once", "daily", "weekly"}:
-            raise ValueError("Recurrence must be once, daily or weekly.")
+        if recurrence not in {"once", "daily", "weekly", "monthly"}:
+            raise ValueError("Recurrence must be once, daily, weekly or monthly.")
         if due_at.tzinfo is None:
             due_at = due_at.astimezone()
         with self._connect() as db:
@@ -182,6 +201,12 @@ class JarvisStore:
                             next_due = due_at + timedelta(days=days)
                             db.execute("UPDATE reminders SET due_at=? WHERE id=?",
                                        (next_due.isoformat(timespec="seconds"), row["id"]))
+                        elif row["recurrence"] == "monthly":
+                            next_due=due_at
+                            while next_due<=now:
+                                month=next_due.month%12+1; year=next_due.year+(1 if next_due.month==12 else 0)
+                                next_due=next_due.replace(year=year,month=month,day=min(next_due.day,calendar.monthrange(year,month)[1]))
+                            db.execute("UPDATE reminders SET due_at=? WHERE id=?",(next_due.isoformat(timespec="seconds"),row["id"]))
                         else:
                             db.execute("UPDATE reminders SET enabled=0 WHERE id=?", (row["id"],))
                 except (ValueError, TypeError):
@@ -311,8 +336,8 @@ def parse_reminder_command(text: str, now: datetime | None = None):
             raise ValueError("Reminder delay must be between 1 and 365 units.")
         delta = timedelta(minutes=amount) if unit.startswith("minute") else timedelta(hours=amount) if unit.startswith("hour") else timedelta(days=amount)
         return match.group(3).strip(), now + delta, "once"
-    match = re.fullmatch(r"remind me (daily|weekly) to (.+)", value, re.I)
+    match = re.fullmatch(r"remind me (daily|weekly|monthly) to (.+)", value, re.I)
     if match:
         recurrence = match.group(1).lower()
-        return match.group(2).strip(), now + timedelta(days=1 if recurrence == "daily" else 7), recurrence
+        return match.group(2).strip(), now + timedelta(days=1 if recurrence == "daily" else 7 if recurrence=="weekly" else 30), recurrence
     return None

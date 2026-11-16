@@ -1,4 +1,5 @@
 """Optional microphone input and local spoken replies for JARVIS."""
+import os
 import threading
 
 try:
@@ -32,12 +33,28 @@ class VoiceController:
         def work():
             try:
                 recognizer = sr.Recognizer()
+                from memory.config_manager import get_mic_sensitivity
+                recognizer.energy_threshold={"low":350,"normal":220,"high":120}.get(get_mic_sensitivity(),220)
+                recognizer.dynamic_energy_threshold=True
                 with sr.Microphone() as source:
                     self.on_status("Listening… speak now")
                     recognizer.adjust_for_ambient_noise(source, duration=0.5)
                     audio = recognizer.listen(source, timeout=6, phrase_time_limit=12)
-                self.on_status("Recognizing speech with Google…")
-                text = recognizer.recognize_google(audio)
+                provider=os.getenv("JARVIS_STT_PROVIDER","google").strip().lower()
+                if provider in {"whisper","offline"}:
+                    self.on_status("Transcribing locally with Whisper…")
+                    try:
+                        import numpy as np
+                        from core.stt import WhisperSTT
+                        raw=audio.get_raw_data(convert_rate=16000,convert_width=2)
+                        samples=np.frombuffer(raw,dtype=np.int16).astype(np.float32)/32768.0
+                        if not hasattr(self,"_whisper_stt"): self._whisper_stt=WhisperSTT(model_name=os.getenv("JARVIS_WHISPER_MODEL","base"))
+                        text=self._whisper_stt.transcribe(samples)
+                    except ImportError as exc:
+                        raise RuntimeError("Offline voice needs faster-whisper and numpy. Set JARVIS_STT_PROVIDER=whisper to enable it.") from exc
+                else:
+                    self.on_status("Recognizing speech with Google…")
+                    text = recognizer.recognize_google(audio)
                 if text:
                     self.on_result(text)
                     self.on_status("Voice command recognized")

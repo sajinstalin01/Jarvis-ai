@@ -182,6 +182,7 @@ class _VoiceCommandRelay(QObject):
     status_requested = pyqtSignal(str)
     log_requested = pyqtSignal(str)
     reminder_speech_requested = pyqtSignal(str)
+    transcript_requested = pyqtSignal(str)
     answer_requested = pyqtSignal(str, str)
     error_requested = pyqtSignal(str)
 
@@ -190,6 +191,8 @@ class JarvisBridge:
     def __init__(self, ui: JarvisUI):
         self.ui = ui
         self.store = JarvisStore()
+        from features.hub import FeatureHub
+        self._feature_hub = FeatureHub(ROOT, bridge=self)
         self.app_control = AppControlManager(ui)
         from pc_operator import PCOperator
         self.pc_operator = PCOperator(self.app_control.permissions, self.app_control._confirm)
@@ -197,6 +200,7 @@ class JarvisBridge:
         from features.system_watch import SystemWatch
         self.device_hub = DeviceIntegrationHub(ROOT, confirm=self.app_control._confirm)
         self.system_watch = SystemWatch(ROOT)
+        self._voice_relay = _VoiceCommandRelay()
         # A GUI-thread-owned timer samples lightweight OS counters. All widget
         # logging stays on the Qt thread, avoiding cross-thread QObject parenting.
         from PyQt6.QtCore import QTimer
@@ -204,9 +208,9 @@ class JarvisBridge:
         self._watch_timer.setInterval(15000)
         self._watch_timer.timeout.connect(self._system_watch_tick)
         self._watch_timer.start()
-        self._voice_relay = _VoiceCommandRelay()
         self._voice_relay.log_requested.connect(self._log_on_ui, Qt.ConnectionType.QueuedConnection)
         self._voice_relay.reminder_speech_requested.connect(self._speak_reminder_on_ui, Qt.ConnectionType.QueuedConnection)
+        self._voice_relay.transcript_requested.connect(self._review_voice_transcript, Qt.ConnectionType.QueuedConnection)
         self._voice_relay.answer_requested.connect(
             self._ai_answer_on_ui, Qt.ConnectionType.QueuedConnection
         )
@@ -219,7 +223,7 @@ class JarvisBridge:
         self._voice_relay.status_requested.connect(
             self._voice_status_on_ui, Qt.ConnectionType.QueuedConnection
         )
-        self._voice = VoiceController(self._voice_result, self._voice_status)
+        self._voice = VoiceController(self._voice_transcript, self._voice_status)
         self._voice_lock = threading.Lock()
         self.remote = JarvisRemoteServer(self._remote_command, self._remote_status)
         self._reminder_stop = threading.Event()
@@ -230,7 +234,7 @@ class JarvisBridge:
         self.ui.on_wake_toggle = self._wake_toggle
         self.ui.on_wake_manual = self._wake_manual
         self.ui.wake_get_state = lambda: {"ready": False, "enabled": False, "awake": True}
-        self.ui.get_plugins = lambda: []
+        self.ui.get_plugins = self._feature_hub.plugin_ui_list
         self.ui.get_plugin_settings = lambda: []
         self.ui.on_remote_clicked = self._remote_overlay_request
         self._reminder_thread = threading.Thread(target=self._reminder_loop, daemon=True, name="JarvisReminders")
@@ -268,9 +272,20 @@ class JarvisBridge:
     def _voice_status_on_ui(self, message):
         self.ui.write_log("VOICE: " + str(message))
 
-    def _voice_result(self, text):
-        if text:
-            self._voice_relay.command_requested.emit(str(text))
+    def _voice_transcript(self,text):
+        if text: self._voice_relay.transcript_requested.emit(str(text))
+
+    def _review_voice_transcript(self,text):
+        """Let the user inspect a recognized command before it reaches the router."""
+        from PyQt6.QtWidgets import QMessageBox
+        answer=QMessageBox.question(self.ui._win,"Review voice command",
+            "JARVIS heard:\n\n"+str(text)[:1000]+"\n\nRun this command?",
+            QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No)
+        if answer==QMessageBox.StandardButton.Yes:
+            self.handle_command(text)
+        else:
+            self.ui.write_log("VOICE: Command discarded after review.")
 
     def _ptt_enable(self, enabled):
         return "window" if enabled else ""
@@ -315,12 +330,37 @@ class JarvisBridge:
         return "Remote command rejected."
 
     def _remote_overlay_request(self):
-        # Do not silently expose the machine to a LAN. The separate authenticated
-        # API can be started explicitly with the chat command 'remote server start'.
-        self.ui.write_log("REMOTE: Use 'remote server start' to start the authenticated local API.")
-        return None
+        """Start a short-lived companion session; LAN binding gets a direct confirmation."""
+        cert=os.getenv("JARVIS_TLS_CERT","").strip(); key=os.getenv("JARVIS_TLS_KEY","").strip()
+        allow_lan=False; bind_error=""
+        try:
+            from PyQt6.QtWidgets import QMessageBox
+            if cert and key:
+                answer=QMessageBox.question(self.ui._win,"Enable JARVIS remote access",
+                    "Allow another device on your local network to connect over HTTPS for this 10-minute session?\n\nThe session key grants access to status, lock screen, and allow-listed app launch.",
+                    QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No)
+                allow_lan=answer==QMessageBox.StandardButton.Yes
+            else:
+                bind_error="LAN pairing needs trusted TLS files configured as JARVIS_TLS_CERT and JARVIS_TLS_KEY; this session is loopback-only."
+            if self.remote.running: self.remote.stop()
+            token=self.remote.start(allow_lan=allow_lan,certfile=cert or None,keyfile=key or None)
+            host="127.0.0.1"
+            if allow_lan:
+                import socket
+                sock=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+                try:
+                    sock.connect(("192.0.2.1",80)); host=sock.getsockname()[0]
+                finally: sock.close()
+            base=f"{self.remote.scheme}://{host}:{self.remote.port}/"
+            auto=base+"?token="+urllib.parse.quote(token)
+            if bind_error: self.ui.write_log("REMOTE: "+bind_error)
+            return (base,token,auto,base,bind_error)
+        except Exception as exc:
+            self.ui.write_log("REMOTE: Could not start companion session — "+str(exc))
+            return None
 
-    def _context(self):
+    def _context(self, query=""):
         rows = list(reversed(self.store.search_history("", limit=20)))
         context = []
         for row in rows:
@@ -343,6 +383,9 @@ class JarvisBridge:
                 project_path = project_data.get("projects", {}).get(active_project, "")
                 if active_project and project_path:
                     saved += f"\nActive project context: {active_project} ({project_path})"
+                    evidence=feature_hub.relevant_context(query)
+                    if evidence:
+                        saved += "\nRelevant indexed project excerpts (cite the [Source: path:line] marker when using them):\n"+evidence
         except Exception:
             pass
         return context[-16:], saved
@@ -374,6 +417,21 @@ class JarvisBridge:
         except Exception as router_error:
             self.ui.write_log(f"INTENT: Router unavailable ({type(router_error).__name__}); using standard commands.")
         p = raw.casefold()
+        if p in {"undo","undo last","undo last action"}:
+            from core.undo import undo_last
+            return undo_last()
+        if p in {"undo history","undo list"}:
+            from core.undo import history
+            items=history()
+            return "\n".join(f"{i+1}. {label}" for i,label in enumerate(items)) or "No reversible actions in this session."
+        if p in {"voice sensitivity", "voice sensitivity status"}:
+            from memory.config_manager import get_mic_sensitivity
+            return "Microphone sensitivity: "+get_mic_sensitivity()+". Set low, normal or high with 'voice sensitivity <level>'."
+        match=re.fullmatch(r"voice sensitivity (low|normal|high)",p)
+        if match:
+            from memory.config_manager import save_mic_sensitivity
+            save_mic_sensitivity(match.group(1))
+            return f"Microphone sensitivity set to {match.group(1)}."
         try:
             from features.hub import FeatureHub
             if not hasattr(self, "_feature_hub"):
@@ -407,9 +465,9 @@ class JarvisBridge:
                     "• memory auto [on|off|status] — privacy-conscious local learning\n"
                     "• api status / api check — live health check for every configured API key\n"
                     "• Unlimited key pools: GROQ_API_KEY_2... or api_keys lists in local config\n"
-                    "• remind me in 10 minutes to <task>; remind me daily/weekly to <task>; list reminders\n"
+                    "• remind me in 10 minutes to <task>; remind me daily/weekly/monthly to <task>; snooze reminder <id> for <minutes> minutes\n"
                     "• save workflow <name>: launch <app>; open <site>; search <query>\n"
-                    "• run workflow <name>; workflows; developer diagnostics\n"
+                    "• run workflow <name>; workflows; workflow studio schedule/history; developer diagnostics\n"
                     "• tasks add/list/due/done/delete; project add/use/index; voice commands work with these aliases\\n"
                     "• monitor on/off/status/snapshot/history/alerts; resource alerts are local-only\\n"
                     "• alexa setup/status; devices list/find; turn on/off <Home Assistant entity_id>\\n"
@@ -568,11 +626,20 @@ class JarvisBridge:
             # on the GUI thread. Provider/network calls are dispatched separately.
             local = self._local_command(prompt)
             if local is not None:
+                try:
+                    command=prompt.strip().casefold()
+                    if command not in {"activity log","activity","actions history"}:
+                        parts=command.split()
+                        category=" ".join(parts[:2]) if parts and parts[0] in {"pc","tasks","remind","cancel","snooze","launch","open","fm","workflow","project","plugins","backup","monitor","remote","security","devices","remember","forget","undo"} else (parts[0] if parts else "assistant")
+                        outcome="failed" if any(x in str(local).casefold() for x in ("failed","not found","unavailable","rejected")) else "completed"
+                        self.store.record_action(category,outcome)
+                except Exception:
+                    pass
                 self._remember_history("JARVIS", local)
                 self._log_answer(local)
                 return
             self._refresh_api_keys()
-            context, memories = self._context()
+            context, memories = self._context(prompt)
             threading.Thread(
                 target=self._generate_response_worker,
                 args=(prompt, context, memories),
@@ -616,6 +683,9 @@ class JarvisBridge:
                     message = str(reminder.get("message", ""))
                     self._voice_relay.log_requested.emit("REMINDER: " + message)
                     self._voice_relay.reminder_speech_requested.emit(message)
+                feature_hub=getattr(self,"_feature_hub",None)
+                if feature_hub:
+                    feature_hub.run_due_workflows()
             except Exception:
                 pass
 

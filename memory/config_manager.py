@@ -16,7 +16,7 @@ AVAILABLE_VOICES = ["Kore", "Aoede", "Charon", "Fenrir", "Leda", "Orus", "Puck",
 _DEFAULT = {
     "hud_style": "core", "brief_enabled": False, "voice": DEFAULT_VOICE,
     "input_device": "", "output_device": "", "wake_word_enabled": False,
-    "push_to_talk_enabled": False, "plugins": {}, "plugin_config": {},
+    "push_to_talk_enabled": False, "mic_sensitivity": "normal", "plugins": {}, "plugin_config": {},
     "providers": {}, "pipeline": {"stt": "", "llm": "", "tts": ""},
     "provider_mode": "auto", "sidecar_first": False, "sidecar_provider": "",
 }
@@ -57,6 +57,9 @@ def get_wake_word_enabled(): return bool(_read().get("wake_word_enabled", False)
 def save_wake_word_enabled(value): save_all(wake_word_enabled=bool(value))
 def get_push_to_talk_enabled(): return bool(_read().get("push_to_talk_enabled", False))
 def save_push_to_talk_enabled(value): save_all(push_to_talk_enabled=bool(value))
+def get_mic_sensitivity(): return str(_read().get("mic_sensitivity", "normal"))
+def save_mic_sensitivity(value):
+    if str(value).lower() in {"low", "normal", "high"}: save_all(mic_sensitivity=str(value).lower())
 def get_plugin_enabled(name): return bool(_read().get("plugins", {}).get(str(name), True))
 def save_plugin_enabled(name, value):
     data = _read(); data.setdefault("plugins", {})[str(name)] = bool(value); save_all(data)

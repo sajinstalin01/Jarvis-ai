@@ -20,7 +20,7 @@ class FeatureHub:
         self.dbpath=self.data/"features.sqlite3"; self.projects_file=self.data/"projects.json"; self.workflow_file=self.data/"visual_workflows.json"
         self.plugins=self.root/"plugins"; self.backups=self.data/"backups"; self.staging=self.data/"restore_staging"
         with self.db() as c:
-            c.executescript("CREATE TABLE IF NOT EXISTS edges(id INTEGER PRIMARY KEY,src TEXT,rel TEXT,dst TEXT,UNIQUE(src,rel,dst)); CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY,content TEXT,digest TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,at TEXT,action TEXT,result TEXT); CREATE TABLE IF NOT EXISTS timings(id INTEGER PRIMARY KEY,name TEXT,ms REAL); CREATE TABLE IF NOT EXISTS tasks(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,due_at TEXT,status TEXT NOT NULL DEFAULT 'open',created_at TEXT NOT NULL);")
+            c.executescript("CREATE TABLE IF NOT EXISTS edges(id INTEGER PRIMARY KEY,src TEXT,rel TEXT,dst TEXT,UNIQUE(src,rel,dst)); CREATE TABLE IF NOT EXISTS files(path TEXT PRIMARY KEY,content TEXT,digest TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY,at TEXT,action TEXT,result TEXT); CREATE TABLE IF NOT EXISTS timings(id INTEGER PRIMARY KEY,name TEXT,ms REAL); CREATE TABLE IF NOT EXISTS tasks(id INTEGER PRIMARY KEY AUTOINCREMENT,title TEXT NOT NULL,due_at TEXT,status TEXT NOT NULL DEFAULT 'open',created_at TEXT NOT NULL); CREATE TABLE IF NOT EXISTS workflow_runs(id INTEGER PRIMARY KEY, name TEXT NOT NULL, at TEXT NOT NULL, outcome TEXT NOT NULL, summary TEXT NOT NULL); CREATE TABLE IF NOT EXISTS workflow_schedules(id INTEGER PRIMARY KEY, name TEXT NOT NULL, due_at TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1);")
             columns={row[1] for row in c.execute("PRAGMA table_info(tasks)")}
             if "priority" not in columns: c.execute("ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'")
         self.file_manager = FileManager(audit=self.audit)
@@ -77,6 +77,10 @@ class FeatureHub:
             if p in {"graph","graph list"}: return self.graph_search("")
             if p=="security audit": return self.security_audit()
             if p in {"workflow studio","workflow studio list"}: return self.workflow_list()
+            if p=="workflow studio history" or p.startswith("workflow studio history "): return self.workflow_history(s[24:].strip() if len(s)>24 else "")
+            if p.startswith("workflow studio schedule "): return self.workflow_schedule(s[25:].strip())
+            if p=="workflow studio schedules": return self.workflow_schedules()
+            if p.startswith("workflow studio cancel "): return self.workflow_cancel(s[23:].strip())
             if p.startswith("workflow studio add "): return self.workflow_add(s[20:].strip())
             if p.startswith("workflow studio run "): return self.workflow_run(s[20:].strip())
             if p in {"plugins","plugins list","plugin sdk"}: return self.plugin_list()
@@ -93,6 +97,8 @@ class FeatureHub:
             if p in {"projects","project list"}: return self.project_list()
             if p.startswith("project use "): return self.project_use(s[12:].strip())
             if p.startswith("project index "): return self.project_index(s[14:].strip())
+            if p in {"project context","project context status"}: return "Indexed project context sharing is "+("on" if self._projects().get("share_indexed_context",False) else "off")+". Indexed excerpts are sent to the configured AI only when enabled."
+            if p in {"project context on","project context off"}: return self.project_context_share(p.endswith("on"))
             if p.startswith("find "): return self.find(s[5:].strip())
             if p=="backup create": return self.backup_create()
             if p=="backup status": return self.backup_status()
@@ -114,12 +120,12 @@ network inspect / network diagnose
 dev check [python-file] / dev test [test-folder]
 graph add <source> -> <relation> -> <target> / graph search <words>
 security audit
-workflow studio add <name>: time; calculate 2 + 2 / workflow studio list / workflow studio run <name>
+workflow studio add <name>: time; calculate 2 + 2 / workflow studio list / workflow studio run <name> / workflow studio schedule <name> in <minutes> minutes / workflow studio schedules / workflow studio cancel <id> / workflow studio history [name]
 plugins list / plugins validate
 agent plan <task> / agent mission <task> / agent approve: <read-only command>
 models status / models hardware / models pull <model>
 analyze <csv/json/document> / clipboard read
-project add <name>: <folder> / projects / project use <name> / project index <name|active> / find <words>
+project add <name>: <folder> / projects / project use <name> / project index <name|active> / project context on|off|status / find <words>
 tasks add <title> | due=YYYY-MM-DD HH:MM | priority=low|normal|high / tasks list / tasks due / tasks priority <id> <level> / tasks export / tasks done <id> / tasks delete <id> (then tasks delete confirm <id>)
 activity log (recent local assistant actions)
 backup create / backup status / backup restore stage <zip>
@@ -359,7 +365,31 @@ Safety: no arbitrary shell commands, automatic plugin execution, or background s
         return f"Exported {len(rows)} tasks to {target}"
     def activity_log(self):
         with self.db() as c: rows=c.execute("SELECT at,action,result FROM audit ORDER BY id DESC LIMIT 30").fetchall()
-        return "\n".join(f"{r['at']} · {r['action']} · {r['result']}" for r in rows) or "No assistant actions have been recorded yet."
+        out=[f"{r['at']} · {r['action']} · {r['result']}" for r in rows]
+        store=getattr(self.bridge,"store",None)
+        if store:
+            out.extend(f"{r['created_at']} · {r['action']} · {r['outcome']}" for r in store.recent_actions(30))
+        return "\n".join(sorted(out,reverse=True)[:30]) or "No assistant actions have been recorded yet."
+    def relevant_context(self,query,limit=4):
+        """Return bounded, locally indexed source excerpts with explicit citations."""
+        terms={x.casefold() for x in re.findall(r"[\w.-]+",str(query)) if len(x)>2}
+        if not terms: return ""
+        projects=self._projects(); active=projects.get("active",""); root=projects.get("projects",{}).get(active)
+        if not root or not projects.get("share_indexed_context",False): return ""
+        with self.db() as c: rows=c.execute("SELECT path,content FROM files").fetchall()
+        ranked=[]
+        for row in rows:
+            path=str(row["path"]); content=str(row["content"] or "")
+            if not _inside(path,root): continue
+            score=sum(content.casefold().count(term)*2+path.casefold().count(term)*3 for term in terms)
+            if not score: continue
+            excerpt=""
+            for lineno,line in enumerate(content.splitlines(),1):
+                if any(term in line.casefold() for term in terms):
+                    excerpt=f"{path}:{lineno}: {line.strip()[:350]}"; break
+            if excerpt: ranked.append((score,path,excerpt))
+        ranked.sort(key=lambda item:(-item[0],item[1]))
+        return "\n".join(f"[Source: {excerpt}]" for _,_,excerpt in ranked[:max(1,min(limit,6))])
     def task_update(self,arg,action):
         try: task_id=int(arg.strip())
         except (ValueError,AttributeError): return "Provide a numeric task ID, e.g. tasks done 3."
@@ -390,12 +420,55 @@ Safety: no arbitrary shell commands, automatic plugin execution, or background s
         d=self._workflows(); d[name]={"steps":steps,"version":1,"updated_at":datetime.now().isoformat()}
         self.workflow_file.write_text(json.dumps(d,indent=2),encoding="utf-8"); return f"Saved workflow {name} with {len(steps)} read-only steps."
     def workflow_run(self,name):
-        w=self._workflows().get(name)
+        workflows=self._workflows()
+        w=next((v for k,v in workflows.items() if k.casefold()==name.casefold()),None)
         if not w: return "Workflow not found."
         if not self.bridge: return "Workflow needs the active JARVIS bridge."
         out=[]
-        for s in w.get("steps",[]): out.append(str(self.bridge._local_command(s) or "No result"))
-        return "\n".join(out)
+        try:
+            for s in w.get("steps",[]): out.append(str(self.bridge._local_command(s) or "No result"))
+            result="\n".join(out); outcome="completed"
+        except Exception as exc:
+            result="Workflow stopped safely: "+type(exc).__name__; outcome="failed"
+        with self.db() as c: c.execute("INSERT INTO workflow_runs(name,at,outcome,summary) VALUES(?,?,?,?)",(w.get("name",name),datetime.now().isoformat(timespec="seconds"),outcome,result[:1000]))
+        self.audit("workflow.run",f"{name}:{outcome}")
+        return result
+    def workflow_history(self,name=""):
+        with self.db() as c:
+            rows=c.execute("SELECT at,name,outcome,summary FROM workflow_runs WHERE (?='' OR name=? COLLATE NOCASE) ORDER BY id DESC LIMIT 20",(name,name)).fetchall()
+        return "\n".join(f"{r['at']} · {r['name']} · {r['outcome']} · {r['summary'][:180]}" for r in rows) or "No workflow runs recorded."
+    def workflow_schedule(self,arg):
+        m=re.fullmatch(r"(.+?)\s+in\s+(\d{1,5})\s+minutes?",arg,re.I)
+        if not m: return "Use workflow studio schedule <name> in <minutes> minutes."
+        name,minutes=m.group(1).strip(),int(m.group(2))
+        if not 1<=minutes<=10080: return "Schedule delay must be from 1 minute to 7 days."
+        workflows=self._workflows(); key=next((k for k in workflows if k.casefold()==name.casefold()),None)
+        if key is None: return "Workflow not found."
+        steps=workflows[key].get("steps",[])
+        safe=lambda step: step.casefold() in {"time","date","system info","network inspect","developer diagnostics"} or step.casefold().startswith(("calculate ","files search ","graph search "))
+        if not steps or not all(safe(step) for step in steps): return "Scheduled workflows are limited to read-only local steps: time, date, calculate, system info, network inspect, files search and graph search."
+        name=key
+        due=(datetime.now().astimezone()+__import__("datetime").timedelta(minutes=minutes)).isoformat(timespec="seconds")
+        with self.db() as c: cur=c.execute("INSERT INTO workflow_schedules(name,due_at,enabled) VALUES(?,?,1)",(name,due))
+        self.audit("workflow.schedule",f"id={cur.lastrowid}")
+        return f"Scheduled workflow '{name}' for {due}. JARVIS must be running."
+    def workflow_schedules(self):
+        with self.db() as c: rows=c.execute("SELECT id,name,due_at FROM workflow_schedules WHERE enabled=1 ORDER BY due_at LIMIT 50").fetchall()
+        return "\n".join(f"#{r['id']} · {r['name']} · {r['due_at']}" for r in rows) or "No scheduled workflows."
+    def workflow_cancel(self,arg):
+        if not arg.isdigit(): return "Use workflow studio cancel <schedule-id>."
+        with self.db() as c: cur=c.execute("UPDATE workflow_schedules SET enabled=0 WHERE id=? AND enabled=1",(int(arg),))
+        return "Scheduled workflow cancelled." if cur.rowcount else "Scheduled workflow not found or already cancelled."
+    def run_due_workflows(self):
+        now=datetime.now().astimezone().isoformat(timespec="seconds")
+        with self.db() as c:
+            rows=c.execute("SELECT id,name FROM workflow_schedules WHERE enabled=1 AND due_at<=? ORDER BY due_at LIMIT 10",(now,)).fetchall()
+            for r in rows: c.execute("UPDATE workflow_schedules SET enabled=0 WHERE id=?",(r["id"],))
+        for r in rows:
+            result=self.workflow_run(r["name"])
+            if self.bridge and hasattr(self.bridge,"_voice_relay"):
+                self.bridge._voice_relay.log_requested.emit("WORKFLOW: scheduled '"+r["name"]+"' completed")
+        return len(rows)
     def plugin_list(self):
         self.plugins.mkdir(exist_ok=True); out=[]
         for p in sorted(self.plugins.glob("*/manifest.json")):
@@ -403,6 +476,24 @@ Safety: no arbitrary shell commands, automatic plugin execution, or background s
                 d=json.loads(_read(p,100000)); out.append(f"{d.get('name',p.parent.name)} v{d.get('version','?')} · metadata only")
             except Exception: out.append("INVALID · "+p.parent.name)
         return "\n".join(out) or "No plugins installed. See plugins/README.md. Plugin code is never auto-executed."
+    def plugin_ui_list(self):
+        """Expose manifest metadata only; never imports the plugin's Python."""
+        from memory.config_manager import get_plugin_enabled
+        rows=[]
+        self.plugins.mkdir(exist_ok=True)
+        for path in sorted(self.plugins.glob("*/manifest.json")):
+            try:
+                data=json.loads(_read(path,100000))
+                name=str(data.get("name",path.parent.name)).strip()
+                if not name or len(name)>80: raise ValueError("invalid plugin name")
+                version=str(data.get("version","unknown"))[:40]
+                permissions=data.get("permissions",[])
+                if not isinstance(permissions,list): permissions=[]
+                details=f"{str(data.get('description',''))[:240]} · v{version} · permissions: {', '.join(str(x)[:40] for x in permissions[:12]) or 'none declared'}"
+                rows.append({"name":name,"description":details,"file":str(path.relative_to(self.root)),"valid":True,"error":"","enabled":get_plugin_enabled(name)})
+            except Exception as exc:
+                rows.append({"name":path.parent.name,"description":"Manifest could not be read","file":str(path.relative_to(self.root)),"valid":False,"error":str(exc)[:200],"enabled":False})
+        return rows
     def plugin_validate(self):
         self.plugins.mkdir(exist_ok=True); out=[]
         for p in sorted(self.plugins.glob("*/manifest.json")):
@@ -491,6 +582,11 @@ Safety: no arbitrary shell commands, automatic plugin execution, or background s
         d=self._projects()
         if name not in d["projects"] or not Path(d["projects"][name]).is_dir(): return "Project not found."
         d["active"]=name; self.projects_file.write_text(json.dumps(d,indent=2),encoding="utf-8"); return f"Active project context: {name} · {d['projects'][name]}"
+    def project_context_share(self,enabled):
+        d=self._projects(); d["share_indexed_context"]=bool(enabled)
+        self.projects_file.write_text(json.dumps(d,indent=2),encoding="utf-8")
+        self.audit("project.context_share","enabled" if enabled else "disabled")
+        return "Indexed project context sharing is "+("on; matching excerpts may be sent to the configured AI provider." if enabled else "off; local indexes remain on this device.")
     def project_index(self,name):
         d=self._projects()
         if name.casefold()=="active": name=d.get("active","")
