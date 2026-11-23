@@ -14,7 +14,8 @@ class DeviceIntegrationTests(unittest.TestCase):
         self.assertIn("does not collect",text)
     def test_entity_filter_and_allowlist(self):
         self.assertIsNone(self.hub.dispatch("unrelated"))
-        self.assertEqual(self.hub.control("shell.command","run"),"Invalid entity ID. Use a Home Assistant entity such as light.desk.")
+        self.assertEqual(self.hub.control("not-an-entity","run"),"Invalid entity ID. Use a Home Assistant entity such as light.desk.")
+        self.assertEqual(self.hub.control("shell.command","run"),"Unsupported Home Assistant entity domain.")
         self.assertIn("Blocked service",self.hub.control("light.desk","delete"))
     def test_mutating_action_requires_confirmation(self):
         hub=DeviceIntegrationHub(Path(self.tmp.name),confirm=lambda *_: False)

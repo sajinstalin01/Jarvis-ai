@@ -17,8 +17,16 @@ class FileManagerTests(unittest.TestCase):
     def test_copy_move_rename(self):
         src=self.root/"original.txt"; src.write_text("hello")
         cp=self.root/"copy.txt"; self.assertIn("Copy complete",self.fm.dispatch(f'fm copy "{src}" :: "{cp}"'))
-        mv=self.root/"moved.txt"; self.assertIn("Move complete",self.fm.dispatch(f'fm move "{cp}" :: "{mv}"'))
-        rn=self.root/"renamed.txt"; self.assertIn("Rename complete",self.fm.dispatch(f'fm rename "{mv}" :: "{rn}"'))
+        mv=self.root/"moved.txt"
+        preview=self.fm.dispatch(f'fm move "{cp}" :: "{mv}"')
+        self.assertIn("TRANSFER PREVIEW",preview)
+        self.assertTrue(cp.exists()); self.assertFalse(mv.exists())
+        self.assertIn("Move complete",self.fm.dispatch("fm transfer confirm"))
+        rn=self.root/"renamed.txt"
+        preview=self.fm.dispatch(f'fm rename "{mv}" :: "{rn}"')
+        self.assertIn("TRANSFER PREVIEW",preview)
+        self.assertTrue(mv.exists()); self.assertFalse(rn.exists())
+        self.assertIn("Rename complete",self.fm.dispatch("fm transfer confirm"))
         self.assertTrue(rn.exists())
     def test_delete_confirmation(self):
         p=self.root/"remove me.txt"; p.write_text("safe")

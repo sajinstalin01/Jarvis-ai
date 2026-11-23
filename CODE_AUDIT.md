@@ -150,3 +150,10 @@ The links below provide direct access to every file in the recursive Git tree in
 ## Integration removal
 
 The ElevenLabs cloud integration has been removed from the active JARVIS bridge, API-key provider registry, speech-recognition path, optional TTS engine factory, environment template, and tests. Local speech output and Google speech recognition remain. `README.md` was intentionally left unchanged at the user's request.
+
+## Latest regression review — 2026-11-23
+
+- **Home Assistant validation test aligned with implementation:** malformed entity IDs are distinguished from syntactically valid but unsupported domains. Unsupported domains are rejected before any request or confirmation, and service names remain allow-listed.
+- **File transfer tests aligned with the safety contract:** move and rename are preview-only until the explicit `fm transfer confirm` command. Tests now assert that source/destination state is unchanged before confirmation and verify the final transfer afterward.
+- **Qt thread-boundary review:** all remaining `QWidget.setParent` calls in `ui.py` are guarded by an owning-thread comparison. Worker-originated HUD updates use queued Qt signals. A source-level regression test covers these boundaries; a Windows interactive GUI smoke test is still required to validate runtime behavior on the target desktop.
+- **Permission model:** desktop input, window control, system settings and system power are enabled by default in the JARVIS permission store. This is an application-level default, not a Windows UAC or OS privilege grant. Destructive/meaningful actions continue to use action-specific confirmation; Windows may still display its own elevation or privacy prompts.
