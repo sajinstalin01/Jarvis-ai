@@ -21,6 +21,7 @@ class PCOperator:
    (r"^(?:restart|reboot) (?:my )?(?:pc|computer|system)$", "pc power restart"),
    (r"^(?:put|send) (?:my )?(?:pc|computer|system) to sleep$", "pc power sleep"),
    (r"^(?:log ?out|sign out) (?:of )?(?:my )?(?:pc|computer|system)$", "pc power logout"),
+   (r"^(?:lock|lock my) (?:pc|computer|system|screen)$", "pc power lock"),
   )
   for pattern, target in aliases:
    if re.fullmatch(pattern, p, re.I):
@@ -43,7 +44,7 @@ class PCOperator:
   if m:
    action="focus" if m.group(1).casefold()=="switch to" else m.group(1).casefold()
    s=f"pc window {action} {m.group(2).strip()}"; p=s.casefold()
-  if p in {"pc control help","pc help"}: return "pc metrics | pc windows | pc monitors; pc window focus|minimize|maximize|restore|close <title>; pc window move <title> <x> <y> <width> <height>; pc window monitor <title> <display-number>; pc mouse click|double click|right click|move <x> <y>; pc mouse scroll <n>; pc mouse drag <x1> <y1> <x2> <y2>; pc keyboard type <text>; pc keyboard press <key>; pc keyboard hotkey <ctrl+c|ctrl+v|ctrl+z|alt+tab|win+d>; pc settings wifi|bluetooth|display|sound|brightness|power; pc volume up|down|mute|set <0-100>; pc brightness set <0-100>; pc power plan balanced|high performance|power saver; pc power shutdown|restart|sleep|logout. Safe reversible actions run directly; clicks, typing, drags, hotkeys, window closing and system power require confirmation."
+  if p in {"pc control help","pc help"}: return "pc metrics | pc windows | pc monitors; pc window focus|minimize|maximize|restore|close <title>; pc window move <title> <x> <y> <width> <height>; pc window monitor <title> <display-number>; pc mouse click|double click|right click|move <x> <y>; pc mouse scroll <n>; pc mouse drag <x1> <y1> <x2> <y2>; pc keyboard type <text>; pc keyboard press <key>; pc keyboard hotkey <ctrl+c|ctrl+v|ctrl+z|alt+tab|win+d>; pc settings wifi|bluetooth|display|sound|brightness|power; pc volume up|down|mute|set <0-100>; pc brightness set <0-100>; pc power plan balanced|high performance|power saver; pc power lock|shutdown|restart|sleep|logout. Safe reversible actions run directly; clicks, typing, drags, hotkeys, window closing and system power require confirmation."
   if p in {"pc metrics","pc hardware","pc resources"}: return self.metrics()
   if p in {"pc windows","pc window list","list windows"}: return self.windows()
   if p in {"pc monitors","pc displays"}: return self.monitors()
@@ -75,7 +76,7 @@ class PCOperator:
   if m:return self.brightness_set(int(m.group(1)))
   m=re.fullmatch(r"pc power plan (balanced|high performance|power saver)",s,re.I)
   if m:return self.power_plan(m.group(1).casefold())
-  m=re.fullmatch(r"pc power (shutdown|restart|sleep|logout|log out)",s,re.I)
+  m=re.fullmatch(r"pc power (lock|shutdown|restart|sleep|logout|log out)",s,re.I)
   if m:return self.power(m.group(1).casefold())
   return None
  def approve(self,perm,title,detail,confirmation_required=True):
@@ -277,6 +278,11 @@ class PCOperator:
   if not ok:return msg
   if platform.system()!="Windows":return "Power actions require Windows 10/11."
   try:
+   if action=="lock":
+    import ctypes
+    ok=ctypes.windll.user32.LockWorkStation()
+    if not ok:return "Windows could not lock the workstation."
+    return "Windows workstation locked."
    if action=="sleep":
     import ctypes
     ctypes.windll.powrprof.SetSuspendState(False,True,False);return "Sent Windows sleep request."

@@ -38,6 +38,12 @@ class PCOperatorNaturalLanguageTests(unittest.TestCase):
         self.operator.dispatch("minimize window Notepad")
         self.operator.dispatch("switch to window Calculator")
         self.assertEqual(seen, [("minimize", "Notepad"), ("focus", "Calculator")])
+    def test_lock_alias_routes_through_power_handler(self):
+        seen = []
+        self.operator.power = lambda action: seen.append(action) or "power-handler"
+        self.assertEqual(self.operator.dispatch("lock my computer"), "power-handler")
+        self.assertEqual(seen, ["lock"])
+
     def test_power_alias_still_routes_through_power_handler(self):
         seen = []
         self.operator.power = lambda action: seen.append(action) or "power-handler"
