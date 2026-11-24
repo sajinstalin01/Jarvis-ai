@@ -185,6 +185,7 @@ class _VoiceCommandRelay(QObject):
     transcript_requested = pyqtSignal(str)
     answer_requested = pyqtSignal(str, str)
     error_requested = pyqtSignal(str)
+    workflow_tick_requested = pyqtSignal()
 
 
 class JarvisBridge:
@@ -222,6 +223,9 @@ class JarvisBridge:
         )
         self._voice_relay.status_requested.connect(
             self._voice_status_on_ui, Qt.ConnectionType.QueuedConnection
+        )
+        self._voice_relay.workflow_tick_requested.connect(
+            self._run_due_workflows_on_ui, Qt.ConnectionType.QueuedConnection
         )
         self._voice = VoiceController(self._voice_transcript, self._voice_status)
         self._voice_lock = threading.Lock()
@@ -265,6 +269,22 @@ class JarvisBridge:
                 self._voice.speak("Reminder: " + str(message))
         except Exception as exc:
             self._voice_relay.log_requested.emit("VOICE: Reminder speech unavailable: " + str(exc))
+
+    def _run_due_workflows_on_ui(self):
+        """Run scheduled local workflows on the Qt GUI thread.
+
+        Scheduled steps can open windows or display confirmation dialogs.
+        Running them from the reminder worker caused Qt cross-thread parent
+        warnings and could touch widgets outside their owning thread.
+        """
+        try:
+            count = self._feature_hub.run_due_workflows()
+            if count:
+                self.ui.write_log(f"WORKFLOW: processed {count} scheduled workflow(s).")
+        except Exception as exc:
+            self.ui.write_log(
+                f"WORKFLOW: scheduled run failed ({type(exc).__name__}: {exc})"
+            )
 
     def _voice_status(self, message):
         self._voice_relay.status_requested.emit(str(message))
@@ -683,9 +703,10 @@ class JarvisBridge:
                     message = str(reminder.get("message", ""))
                     self._voice_relay.log_requested.emit("REMINDER: " + message)
                     self._voice_relay.reminder_speech_requested.emit(message)
-                feature_hub=getattr(self,"_feature_hub",None)
-                if feature_hub:
-                    feature_hub.run_due_workflows()
+                # Workflow steps may call local UI/PC commands. Queue them
+                # onto the Qt thread instead of executing from this worker.
+                if getattr(self, "_feature_hub", None):
+                    self._voice_relay.workflow_tick_requested.emit()
             except Exception:
                 pass
 
