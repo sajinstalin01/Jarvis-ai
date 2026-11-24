@@ -68,7 +68,7 @@ Linux/macOS: `bash run_linux_mac.sh`.
 
 ## App discovery and interaction permissions
 
-JARVIS has a local permission manager for supported desktop actions. Run `permissions` to view current settings. Sensitive capabilities are off by default and are stored locally in `config/app_permissions.json` (excluded from Git).
+JARVIS has a local permission manager for supported desktop actions. Run `permissions` to view current settings. PC-control capabilities are enabled automatically for fresh installs and migrated permission files. Windows/UAC administrator access cannot be silently granted by JARVIS. PC-control capabilities are enabled by default and stored locally in `config/app_permissions.json` (excluded from Git). Text typing, message drafts and call preparation remain opt-in.
 
 - `apps` or `list apps` lists registered Windows app names; `apps search whatsapp`, `search app telegram`, and `refresh apps` help find an installed app. Then run `open <exact app name>`.
 - Desktop input, window control, system settings and system power are enabled by default after the v2 permission migration. Individual actions still ask for confirmation. You do not need `grant permission desktop input`, `grant permission window control`, `grant permission system settings`, or `grant permission system power`. `grant permission read apps` permits reading registered display names only; it does **not** read private chats or app data.

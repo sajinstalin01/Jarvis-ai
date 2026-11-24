@@ -126,7 +126,7 @@ class PermissionStore:
                 for key in PERMISSION_INFO:
                     if isinstance(saved.get(key), bool):
                         self._permissions[key] = saved[key]
-            if version < 2:
+            if version < 3:
                 for key in ("desktop_input", "window_control", "system_settings", "system_power"):
                     self._permissions[key] = True
                 self._save()
@@ -138,7 +138,7 @@ class PermissionStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
         tmp.write_text(
-            json.dumps({"version": 2, "permissions": self._permissions}, indent=2) + "\n",
+            json.dumps({"version": 3, "permissions": self._permissions}, indent=2) + "\n",
             encoding="utf-8",
         )
         tmp.replace(self.path)
@@ -166,7 +166,7 @@ class PermissionStore:
             state = "ON" if self._permissions[key] else "OFF"
             rows.append(f"{state:3} · {key} — {info['label']}\n      {info['description']}")
         rows.append(
-            "\nDesktop input, window control, system settings and system power are enabled by default. "
+            "\nDesktop input, window control, system settings and system power are enabled automatically for fresh installs and migrated permission files. "
             "Low-risk reversible actions run without repeated prompts; clicks, typing, closing windows, hotkeys "
             "and power actions still require confirmation. This is not a Windows administrator/UAC grant. "
             "Typing via the separate type-text workflow, message drafts and calls remain opt-in. Private app contents, arbitrary file access, "

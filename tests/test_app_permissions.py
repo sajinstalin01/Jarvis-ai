@@ -13,7 +13,7 @@ from app_permissions import (
 
 
 class PermissionStoreTests(unittest.TestCase):
-    def test_sensitive_actions_are_opt_in_by_default(self):
+    def test_pc_control_capabilities_are_enabled_by_default(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = PermissionStore(Path(tmp) / "permissions.json")
             self.assertTrue(store.has("read"))
@@ -42,7 +42,7 @@ class PermissionStoreTests(unittest.TestCase):
             self.assertFalse(store.has("type_text"))
             self.assertFalse(store.has("draft_message"))
             self.assertFalse(store.has("prepare_call"))
-            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["version"], 2)
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["version"], 3)
 
     def test_permission_change_persists_and_reloads(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -78,6 +78,26 @@ class PermissionStoreTests(unittest.TestCase):
             self.assertFalse(store.has("draft_message"))
             self.assertFalse(store.has("prepare_call"))
 
+
+
+    def test_v2_permission_file_migrates_pc_controls_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "permissions.json"
+            path.write_text(json.dumps({
+                "version": 2,
+                "permissions": {
+                    "desktop_input": False, "window_control": False,
+                    "system_settings": False, "system_power": False,
+                    "type_text": False, "draft_message": False, "prepare_call": False,
+                },
+            }), encoding="utf-8")
+            store = PermissionStore(path)
+            for capability in ("desktop_input", "window_control", "system_settings", "system_power"):
+                self.assertTrue(store.has(capability), capability)
+            self.assertFalse(store.has("type_text"))
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["version"], 3)
+            store.set("desktop_input", False)
+            self.assertFalse(PermissionStore(path).has("desktop_input"))
 
 class AppDiscoveryTests(unittest.TestCase):
     def test_filter_searches_names_without_exposing_app_ids(self):
