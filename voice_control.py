@@ -158,12 +158,28 @@ class VoiceController:
                 engine = pyttsx3.init()
                 engine.setProperty("rate", max(125, min(210, int(os.getenv("JARVIS_TTS_RATE", "172")))))
                 engine.setProperty("volume", 1.0)
+                voices = engine.getProperty("voices") or []
                 requested = os.getenv("JARVIS_TTS_VOICE", "").strip().casefold()
+                selected = None
                 if requested:
-                    for voice in engine.getProperty("voices") or []:
-                        if requested in str(getattr(voice, "name", "")).casefold() or requested in str(getattr(voice, "id", "")).casefold():
-                            engine.setProperty("voice", voice.id)
-                            break
+                    selected = next((v for v in voices if requested in str(getattr(v, "name", "")).casefold() or requested in str(getattr(v, "id", "")).casefold()), None)
+                else:
+                    # Prefer a naturally available English UK voice, then a
+                    # commonly installed lower-register English voice. This is
+                    # a delivery profile, not an imitation of a specific actor.
+                    def voice_score(v):
+                        name = str(getattr(v, "name", "")).casefold()
+                        ident = str(getattr(v, "id", "")).casefold()
+                        langs = " ".join(str(x) for x in (getattr(v, "languages", []) or [])).casefold()
+                        text = name + " " + ident + " " + langs
+                        score = 0
+                        if "en-gb" in text or "english (united kingdom)" in text or "english uk" in text: score += 8
+                        elif "english" in text or "en-us" in text: score += 4
+                        if any(word in text for word in ("male", "george", "daniel", "ryan", "david", "james", "guy")): score += 3
+                        return score
+                    selected = max(voices, key=voice_score) if voices else None
+                if selected is not None:
+                    engine.setProperty("voice", selected.id)
                 engine.startLoop(False)
                 loop_started = True
                 self._status("JARVIS voice output ready.")
