@@ -35,10 +35,10 @@ PC-control permissions for desktop input, window management, system settings and
 5. Restart JARVIS after editing `.env`.
 
 Manual setup:
-```powershell
+```powershell and cmd
 git clone https://github.com/sajinstalin01/Jarvis-ai.git
 cd Jarvis-ai
-py -m venv .venv (cmd)
+python -m venv .venv (cmd)
 .venv\Scripts\activate.bat (cmd)
 pip install -r requirements.txt
 Copy-Item .env.example .env
