@@ -323,3 +323,12 @@ Irreversible system actions, deleting files, sending messages, installing softwa
 - **Voice task/project organization:** use natural commands such as “add task prepare release”, “show my tasks”, “mark task 3 done”, “show my projects”, and “switch to project Jarvis”. Existing local tasks and project registry remain stored locally.
 - **System watch:** `monitor on`, `monitor snapshot`, `monitor history`, `monitor alerts`, `monitor off`. When enabled, a GUI-thread timer records CPU, RAM, disk and network counters locally and reports high CPU/RAM or low disk space. Monitoring is off by default. It does not record screens, keystrokes, private app contents, microphone audio or clipboard contents.
 - **Desktop thread safety:** monitoring callbacks and voice callbacks are marshalled through Qt-owned objects/signals; keep all QWidget creation, reparenting and updates on the GUI thread. Windows UAC, accessibility settings and hardware/driver limitations still apply.
+
+
+## Voice reliability and JARVIS speech profile
+
+- Microphone selection supports `JARVIS_MIC_DEVICE` as a device index or unique name fragment; unset means the operating-system default. Use `JARVIS_MIC_SAMPLE_RATE` only when a specific device needs a fixed rate.
+- Push-to-talk prevents overlapping microphone sessions, calibrates ambient noise, and reports device/recognition errors instead of silently swallowing them.
+- Speech output uses a single dedicated owner thread. The pyttsx3 engine is initialized and used on that same thread, avoiding the common Windows SAPI/COM cross-thread failure.
+- Optional voice tuning: `JARVIS_TTS_VOICE` selects an installed system voice by name/id fragment and `JARVIS_TTS_RATE` sets speech rate (125–210). The default is a calm, measured, confident assistant delivery; it does not clone a real actor's voice.
+- Brahma Echo was reviewed as an upstream feature reference. JARVIS retains its own implementation, naming, safety gates, and architecture; no Brahma branding or unrelated upstream application code is imported.

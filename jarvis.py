@@ -321,8 +321,12 @@ class JarvisBridge:
         self.ui.write_log("VOICE: Wake-word engine is not configured; use push-to-talk.")
 
     def interrupt(self):
-        # pyttsx3 is optional and speech is run in its own worker thread.
-        self.ui.write_log("SYS: Interrupt requested. Stop the current spoken response from your audio device if needed.")
+        """Stop queued/current speech without touching Qt widgets from the audio thread."""
+        try:
+            self._voice.stop()
+            self.ui.write_log("SYS: Speech interrupted.")
+        except Exception as exc:
+            self.ui.write_log("SYS: Speech interrupt failed: " + str(exc))
 
     def _refresh_api_keys(self):
         try:
