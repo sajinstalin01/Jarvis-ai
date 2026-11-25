@@ -328,6 +328,16 @@ class JarvisBridge:
         except Exception as exc:
             self.ui.write_log("SYS: Speech interrupt failed: " + str(exc))
 
+    def shutdown(self):
+        """Release background services cleanly when the Qt window closes."""
+        try:
+            self._watch_timer.stop()
+            self._reminder_stop.set()
+            self._voice.close()
+            self.remote.stop()
+        except Exception as exc:
+            print("[JARVIS] Shutdown warning:", exc)
+
     def _refresh_api_keys(self):
         try:
             cfg = json.loads(API_FILE.read_text(encoding="utf-8"))
@@ -732,7 +742,7 @@ def main():
     bridge = JarvisBridge(ui)
     # Keep references alive for Qt's lifetime and clean up the local API.
     ui._bridge = bridge
-    ui._win.destroyed.connect(lambda *_: bridge.remote.stop())
+    ui._win.destroyed.connect(lambda *_: bridge.shutdown())
     ui.root.mainloop()
 
 if __name__ == "__main__":

@@ -58,6 +58,7 @@ class VoiceController:
     """
 
     _STOP = object()
+    _INTERRUPT = object()
 
     def __init__(self, on_result: Callable[[str], None], on_status: Callable[[str], None] = lambda _s: None):
         self.on_result = on_result
@@ -150,10 +151,10 @@ class VoiceController:
 
     def _tts_loop(self) -> None:
         engine = None
+        loop_started = False
         try:
             if pyttsx3 is not None:
-                # pyttsx3's Windows SAPI/COM engine is created and used on this
-                # same dedicated thread for its entire lifetime.
+                # The SAPI/COM engine and its event loop are owned by this thread.
                 engine = pyttsx3.init()
                 engine.setProperty("rate", max(125, min(210, int(os.getenv("JARVIS_TTS_RATE", "172")))))
                 engine.setProperty("volume", 1.0)
@@ -163,6 +164,8 @@ class VoiceController:
                         if requested in str(getattr(voice, "name", "")).casefold() or requested in str(getattr(voice, "id", "")).casefold():
                             engine.setProperty("voice", voice.id)
                             break
+                engine.startLoop(False)
+                loop_started = True
                 self._status("JARVIS voice output ready.")
             else:
                 self._status("Voice output unavailable: install pyttsx3.")
@@ -172,35 +175,49 @@ class VoiceController:
         finally:
             self._tts_ready.set()
 
-        while not self._closed.is_set():
-            item = self._tts_queue.get()
-            if item is self._STOP:
-                break
-            if engine is None:
-                continue
+        running = True
+        while running and not self._closed.is_set():
             try:
-                engine.say(item)
-                engine.runAndWait()
+                item = self._tts_queue.get(timeout=0.01)
+                if item is self._STOP:
+                    running = False
+                elif item is self._INTERRUPT:
+                    if engine is not None:
+                        engine.stop()
+                elif engine is not None:
+                    engine.say(item)
+            except queue.Empty:
+                pass
             except Exception as exc:
-                self._status(f"Voice playback error: {exc}")
+                self._status(f"Voice queue error: {exc}")
+            if engine is not None and loop_started:
                 try:
-                    engine.stop()
-                except Exception:
-                    pass
+                    engine.iterate()
+                except Exception as exc:
+                    self._status(f"Voice playback error: {exc}")
+                    try:
+                        engine.stop()
+                    except Exception:
+                        pass
         if engine is not None:
             try:
                 engine.stop()
+                if loop_started:
+                    engine.endLoop()
             except Exception:
                 pass
 
     def stop(self) -> None:
-        """Stop current playback without destroying the voice service."""
+        """Interrupt the current utterance and discard queued speech, keeping TTS ready."""
         try:
-            self._tts_queue.put_nowait(self._STOP)
-            self._tts_thread.join(timeout=1.0)
+            while True:
+                self._tts_queue.get_nowait()
+        except queue.Empty:
+            pass
         except Exception:
             pass
-        self._closed.set()
+        if not self._closed.is_set():
+            self._tts_queue.put_nowait(self._INTERRUPT)
 
     def close(self) -> None:
         if self._closed.is_set():
