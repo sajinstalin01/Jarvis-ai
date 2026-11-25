@@ -332,3 +332,8 @@ Irreversible system actions, deleting files, sending messages, installing softwa
 - Speech output uses a single dedicated owner thread. The pyttsx3 engine is initialized and used on that same thread, avoiding the common Windows SAPI/COM cross-thread failure.
 - Optional voice tuning: `JARVIS_TTS_VOICE` selects an installed system voice by name/id fragment and `JARVIS_TTS_RATE` sets speech rate (125–210). The default is a calm, measured, confident assistant delivery; it does not clone a real actor's voice.
 - Brahma Echo was reviewed as an upstream feature reference. JARVIS retains its own implementation, naming, safety gates, and architecture; no Brahma branding or unrelated upstream application code is imported.
+
+
+## On-demand foreground-window awareness
+
+JARVIS can identify the active window and (on Windows) its process name with `pc foreground`. Natural-language requests such as “what window is active?” use the same local helper. Foreground context is added to AI context only when the user's question explicitly refers to the current/active window. It does not continuously capture screenshots, keystrokes, clipboard data, or app contents.

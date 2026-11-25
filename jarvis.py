@@ -403,6 +403,15 @@ class JarvisBridge:
             content = str(row.get("content", "")).strip()
             if content:
                 context.append({"role": role, "content": content[:3000]})
+        # Add foreground context only when the user explicitly asks about the
+        # current/active window. Titles are not continuously collected.
+        query_l = str(query or "").casefold()
+        if any(term in query_l for term in ("this window", "current window", "active window", "foreground window", "what am i working on", "what is open on my screen")):
+            try:
+                from features.desktop_context import format_foreground_context
+                context.append({"role": "system", "content": format_foreground_context()})
+            except Exception:
+                pass
         # Current prompt is stored before routing; generate_response appends it separately.
         if context and context[-1].get("role") == "user":
             context.pop()
@@ -527,6 +536,9 @@ class JarvisBridge:
             return "Local time: " + dt.datetime.now().astimezone().strftime("%I:%M:%S %p")
         if p in {"date", "what is the date", "what's the date"}:
             return "Today is " + dt.datetime.now().astimezone().strftime("%A, %d %B %Y")
+        if p in {"pc foreground", "active window", "foreground window"}:
+            from features.desktop_context import format_foreground_context
+            return format_foreground_context()
         if p in {"system info", "pc status", "computer status", "system status"}:
             return "\n".join(f"{k.replace('_',' ').title()}: {v}" for k, v in system_metrics().items())
         if p in {"pc lock", "lock pc", "lock screen", "lock computer"}:

@@ -68,6 +68,9 @@ def normalize_natural_command(text: str) -> str | None:
         "show open windows": "pc windows",
         "list open windows": "pc windows",
         "show connected monitors": "pc monitors",
+        "what window is active": "pc foreground",
+        "which app is open": "pc foreground",
+        "what am i working on": "pc foreground",
     })
     if p in direct:
         return direct[p]
